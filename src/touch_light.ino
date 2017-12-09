@@ -15,28 +15,34 @@
 #define D_SERIAL true
 #define D_WIFI true
 
-#define NUM_SPARKS 6 // number of Filimins in your group
-String sparkId[] = {
-  "",                                       // 0
-  "53ff99999999999999999999",                // number each Filimin starting at 1. Replace the number in the quotes with Particle ID for Filimin 1
-  "53ff99999999999999999999",                // Filimin 2
-  "53ff99999999999999999999",                // Filimin 3
-  "53ff99999999999999999999",                // Filimin 4
-  "53ff99999999999999999999",                // Filimin 5
-  "53ff99999999999999999999"                 // Filimin 6
+#define NUM_PARTICLES 1 // number of touch lights in your group
+// Number each Filimin starting at 1.
+String particleId[] = {
+  "330022001547353236343033"
+  // "330022001547353236343033",    // Filimin 1
+  // "330022001547353236343033",    // Filimin 2
+  // "330022001547353236343033",    // Filimin 3
+  // "330022001547353236343033",    // Filimin 4
+  // "330022001547353236343033",    // Filimin 5
+  // "330022001547353236343033"     // Filimin 6
 };
 
 
 // TWEAKABLE VALUES FOR CAP SENSING. THE BELOW VALUES WORK WELL AS A STARTING PLACE:
-#define BASELINE_VARIANCE 512.0 // the higher the number the less the baseline is affected by current readings. (was 4)
-#define SENSITIVITY 8 // Integer. Higher is more sensitive (was 8)
-#define BASELINE_SENSITIVITY 16 // Integer. This is a trigger point such that values exceeding this point will not affect the baseline. Higher values make the trigger point sooner. (was 16)
-#define SAMPLE_SIZE 512 // 512 // Number of samples to take for one reading. Higher is more accurate but large values cause some latency.(was 32)
+// BASELINE_VARIANCE: The higher the number the less the baseline is affected by current readings. (was 4)
+#define BASELINE_VARIANCE 512.0
+// SENSITIVITY: Integer. Higher is more sensitive (was 8)
+#define SENSITIVITY 8
+// BASELINE_SENSITIVITY: Integer. A trigger point such that values exceeding this point will not affect the baseline. Higher values make the trigger point sooner. (was 16)
+#define BASELINE_SENSITIVITY 16
+// SAMPLE_SIZE: Number of samples to take for one reading. Higher is more accurate but large values cause some latency.(was 32)
+#define SAMPLE_SIZE 512
 #define SAMPLES_BETWEEN_PIXEL_UPDATES 32
 #define LOOPS_TO_FINAL_COLOR 150
+
 const int minMaxColorDiffs[2][2] = {
-{5,20},   // min/Max if color change last color change from same Filimin
-{50,128}    // min/Max if color change last color change from different Filimin
+  {5,20},   // min/Max if color change last color change from same Filimin
+  {50,128}  // min/Max if color change last color change from different Filimin
 };
 
 // CONFIGURATION SETTINGS END
@@ -59,17 +65,17 @@ int rPin = D3;
 // END VALUE, TIME
 // 160 is approximately 1 second
 const long envelopes[6][2] = {
-{0, 0} ,          // OFF
-{255, 30} ,      // ATTACK
-{200, 240},     // DECAY
-{200, 1000},       // SUSTAIN
-{150, 60},     // RELEASE1
-{0, 1000000}      // RELEASE2 (65535 is about 6'45")
+  {0, 0},      // OFF
+  {255, 30} ,  // ATTACK
+  {200, 240},  // DECAY
+  {200, 1000}, // SUSTAIN
+  {150, 60},   // RELEASE1
+  {0, 1000000} // RELEASE2 (65535 is about 6'45")
 };
 
 // NEOPIXEL
 #define PIXEL_PIN D2
-#define PIXEL_COUNT 16
+#define PIXEL_COUNT 24
 #define PIXEL_TYPE WS2812B
 
 #define tEVENT_NONE 0
@@ -79,10 +85,10 @@ const long envelopes[6][2] = {
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 int currentEvent = tEVENT_NONE;
 
-int finalColor = 0; // 0 to 255
+int finalColor = 0;     // 0 to 255
 int initColor = 0;
-int currentColor = 0; // 0 to 255
-int brightness = 0; // 0 to 255
+int currentColor = 0;   // 0 to 255
+int brightness = 0;     // 0 to 255
 int initBrightness = 0; // 0 to 255
 uint32_t colorAndBrightness = 0;
 int brightnessDistanceToNextState = 0;
@@ -119,40 +125,44 @@ void setup()
 
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
-  pinMode(sPin,OUTPUT);
-  attachInterrupt(rPin,touchSense,RISING);
-  for (int i = 1; i < (NUM_SPARKS + 1); i++) {
-    if (!sparkId[i].compareTo(Particle.deviceID())) {
+
+  pinMode(sPin, OUTPUT);
+  attachInterrupt(rPin, touchSense, RISING);
+
+  for (int i = 0; i < NUM_PARTICLES; i++) {
+    if (!particleId[i].compareTo(Particle.deviceID())) {
       myId = i;
       break;
     }
-  finalColor = random(256);
+    finalColor = random(256);
   }
 
   for (byte i = 0; i < 1; i++) {
-    for (byte j=0; j<strip.numPixels(); j++) {
+    for (byte j = 0; j < strip.numPixels(); j++) {
       strip.setPixelColor(j, 255, 255, 255);
     }
     strip.show();
     delay(250);
-    for (byte j=0; j<strip.numPixels(); j++) {
-      strip.setPixelColor(j, 0,0,0);
+    for (byte j = 0; j < strip.numPixels(); j++) {
+      strip.setPixelColor(j, 0, 0, 0);
     }
     strip.show();
     delay(250);
   }
-  // calibrate touch sensor- Keep hands off!!!
+
+  // Calibrate touch sensor- Keep hands off!!!
   tBaseline = touchSampling();    // initialize to first reading
   if (D_WIFI) tBaselineExternal = tBaseline;
 
-  for (int i =0; i < 256; i++) {
-    uint32_t color = wheelColor(i,255);
+  for (int i = 0; i < 256; i++) {
+    uint32_t color = wheelColor(i, 255);
     for (byte j = 0; j < strip.numPixels(); j++) {
       strip.setPixelColor(j, color);
       strip.show();
     }
     delay(1);
   }
+
   for (int j = 255; j >= 0; j--) {
     uint32_t color = wheelColor(255, j);
     for (byte k = 0; k < strip.numPixels(); k++) {
@@ -324,7 +334,7 @@ uint32_t wheelColor(byte WheelPos, byte iBrightness) {
 }
 
 void updateNeoPixels(uint32_t color) {
-  for(char i=0; i<strip.numPixels(); i++) {
+  for(char i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, color);
   }
   strip.show();
