@@ -9,7 +9,7 @@
 #define NUM_SPARKS 6 // number of Filimins in your group
 String sparkId[] = {
   "",                                       // 0
-  "53ff99999999999999999999",                // number each Filimin starting at 1. Replace the number in the quotes with Spark ID for Filimin 1
+  "53ff99999999999999999999",                // number each Filimin starting at 1. Replace the number in the quotes with Particle ID for Filimin 1
   "53ff99999999999999999999",                // Filimin 2
   "53ff99999999999999999999",                // Filimin 3
   "53ff99999999999999999999",                // Filimin 4
@@ -101,11 +101,11 @@ float tBaseline;
 
 void setup()
 {
-  Spark.function("poll", pollLamp);
+  Particle.function("poll", pollLamp);
   if (D_SERIAL) Serial.begin(9600);
   if (D_WIFI) {
-    Spark.variable("tDelay", &tDelayExternal, DOUBLE);
-    Spark.variable("tBaseline", &tBaselineExternal, DOUBLE);
+    Particle.variable("tDelay", &tDelayExternal, DOUBLE);
+    Particle.variable("tBaseline", &tBaselineExternal, DOUBLE);
   }
 
   strip.begin();
@@ -113,7 +113,7 @@ void setup()
   pinMode(sPin,OUTPUT);
   attachInterrupt(rPin,touchSense,RISING);
   for (int i = 1; i < (NUM_SPARKS + 1); i++) {
-    if (!sparkId[i].compareTo(Spark.deviceID())) {
+    if (!sparkId[i].compareTo(Particle.deviceID())) {
       myId = i;
       break;
     }
