@@ -12,7 +12,7 @@
 
 // CONFIGURATION SETTINGS START
 // DEBUG SETTINGS:
-#define D_SERIAL true
+#define D_SERIAL false
 #define D_WIFI true
 
 #define NUM_PARTICLES 1 // number of touch lights in your group
