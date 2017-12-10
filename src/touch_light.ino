@@ -407,31 +407,31 @@ int pollLamp(String command) {
 
     if (updateServer) { // local update
       if (D_SERIAL) { Serial.print("----& LOCAL -> SERVER: "); Serial.println(updateServer); }
-        if (updateServer == tEVENT_TOUCH) {
-          if (D_SERIAL) Serial.println("---- local touch");
-          if (serverTouch == tEVENT_TOUCH) {
-            if (D_SERIAL) Serial.println("---- server touch");
-            lastColorChangeDeviceId = deviceId;
-            generateColor();
-            changeState(ATTACK);
-          } else {
-            if (D_SERIAL) Serial.println("---- server release");
-            generateColor();
-          }
-          // serverTouch == touch or release:
-          localResponse = (myId << 10) + (updateServer << 8) + (finalColor & 0xff);
-        } else { // local touchEvent == tEVENT_RELEASE
-          if (D_SERIAL) Serial.println("---- local release");
-          if (serverTouch == tEVENT_TOUCH) {
-            if (D_SERIAL) Serial.println("---- server touch");
-            getColorFromServer(serverColorAndTouch & 0xff);
-            changeState(ATTACK);
-          } else { // server and local have tEVENT_RELEASE
-            if (D_SERIAL) Serial.println("---- server release");
-            changeState(RELEASE1);
-          }
-          localResponse = (deviceId << 10) + serverColorAndTouch;
+      if (updateServer == tEVENT_TOUCH) {
+        if (D_SERIAL) Serial.println("---- local touch");
+        if (serverTouch == tEVENT_TOUCH) {
+          if (D_SERIAL) Serial.println("---- server touch");
+          lastColorChangeDeviceId = deviceId;
+          generateColor();
+          changeState(ATTACK);
+        } else {
+          if (D_SERIAL) Serial.println("---- server release");
+          generateColor();
         }
+        // serverTouch == touch or release:
+        localResponse = (myId << 10) + (updateServer << 8) + (finalColor & 0xff);
+      } else { // local touchEvent == tEVENT_RELEASE
+        if (D_SERIAL) Serial.println("---- local release");
+        if (serverTouch == tEVENT_TOUCH) {
+          if (D_SERIAL) Serial.println("---- server touch");
+          getColorFromServer(serverColorAndTouch & 0xff);
+          changeState(ATTACK);
+        } else { // server and local have tEVENT_RELEASE
+          if (D_SERIAL) Serial.println("---- server release");
+          changeState(RELEASE1);
+        }
+        localResponse = (deviceId << 10) + serverColorAndTouch;
+      }
     } else { // no local update
       if (D_SERIAL) Serial.println("-no local update");
       if (serverTouch == tEVENT_TOUCH) {
