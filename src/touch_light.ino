@@ -137,18 +137,7 @@ void setup()
     finalColor = random(256);
   }
 
-  for (byte i = 0; i < 1; i++) {
-    for (byte j = 0; j < strip.numPixels(); j++) {
-      strip.setPixelColor(j, 255, 255, 255);
-    }
-    strip.show();
-    delay(250);
-    for (byte j = 0; j < strip.numPixels(); j++) {
-      strip.setPixelColor(j, 0, 0, 0);
-    }
-    strip.show();
-    delay(250);
-  }
+  flashWhite(&strip);
 
   // Calibrate touch sensor- Keep hands off!!!
   tBaseline = touchSampling();    // initialize to first reading
@@ -183,6 +172,26 @@ void loop() {
     if (D_SERIAL) Serial.println("release");
     currentEvent = touchEvent;
   }
+}
+
+//============================================================
+//	Setup functions
+//============================================================
+//------------------------------------------------------------
+// Functions used during setup
+//------------------------------------------------------------
+void flashWhite(Adafruit_NeoPixel* strip) {
+  int numPixels = strip->numPixels();
+  for (byte j = 0; j < numPixels; j++) {
+    strip->setPixelColor(j, 255, 255, 255);
+  }
+  strip->show();
+  delay(250);
+  for (byte j = 0; j < numPixels; j++) {
+    strip->setPixelColor(j, 0, 0, 0);
+  }
+  strip->show();
+  delay(250);
 }
 
 //============================================================
