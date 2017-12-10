@@ -41,8 +41,8 @@ String particleId[] = {
 #define LOOPS_TO_FINAL_COLOR 150
 
 const int minMaxColorDiffs[2][2] = {
-  {5,20},   // min/Max if color change last color change from same Filimin
-  {50,128}  // min/Max if color change last color change from different Filimin
+  {5,20},   // min/Max if color change last color change from same touch light
+  {50,128}  // min/Max if color change last color change from different touch light
 };
 
 // CONFIGURATION SETTINGS END
@@ -224,7 +224,7 @@ long touchSampling() {
   long tDelay = 0;
   int mSample = 0;
 
-  for (int i=0; i<SAMPLE_SIZE; i++) {
+  for (int i = 0; i < SAMPLE_SIZE; i++) {
     if (!(i % SAMPLES_BETWEEN_PIXEL_UPDATES)) {
       stateAndPixelMagic();
     }
@@ -254,9 +254,9 @@ long touchSampling() {
   } else {
     tDelay = 0;     // this is an error condition!
   }
-  //if (D_SERIAL) Serial.println(tDelay);
+  if (D_SERIAL) Serial.println(tDelay);
   if (D_WIFI) tDelayExternal = tDelay;
-  //autocalibration using exponential moving average on data below specified point
+  // autocalibration using exponential moving average on data below specified point
   if (tDelay<(tBaseline + tBaseline/BASELINE_SENSITIVITY)) {
     tBaseline = tBaseline + (tDelay - tBaseline)/BASELINE_VARIANCE;
     if (D_WIFI) tBaselineExternal = tBaseline;
@@ -491,17 +491,20 @@ void generateColor() {
     finalColor = newColor = currentColor = random(256);
   } else {
     bool diffId = (lastColorChangeDeviceId != myId);
-    finalColor += (random(2)*2-1)*
-    (minMaxColorDiffs[diffId][0] +
-    random(minMaxColorDiffs[diffId][1]-minMaxColorDiffs[diffId][0]+1));
+    int minChange = minMaxColorDiffs[diffId][0];
+    int maxChange = minMaxColorDiffs[diffId][1];
+    int direction = random(2) * 2 - 1;
+    int magnitude = random(minChange, maxChange + 1);
+    finalColor += direction * magnitude;
     finalColor = (finalColor + 256) % 256;
     // finalColor = 119; // FORCE A COLOR
   }
   colorChangeToNextState = finalColor - currentColor;
-  colorChangeToNextState += ((colorChangeToNextState < 0) * 2 - 1) * (abs(colorChangeToNextState) > 127) * 256;
+  int colorChangeDirection = (colorChangeToNextState < 0) * 2 - 1;
+  colorChangeToNextState += colorChangeDirection * (abs(colorChangeToNextState) > 127) * 256;
   initColor = currentColor;
-  if (D_SERIAL) {Serial.print("final color: "); Serial.println(finalColor);}
-    lastColorChangeDeviceId = myId;
+  if (D_SERIAL) { Serial.print("final color: "); Serial.println(finalColor); }
+  lastColorChangeDeviceId = myId;
 }
 
 void getColorFromServer(int color) {
@@ -509,18 +512,23 @@ void getColorFromServer(int color) {
   colorChangeToNextState = finalColor - currentColor;
   colorChangeToNextState += ((colorChangeToNextState < 0) * 2 - 1) * (abs(colorChangeToNextState) > 127) * 256;
   initColor = currentColor;
-  if (D_SERIAL) {Serial.print("get Color From Server Final color: "); Serial.print(finalColor); Serial.print(", "); Serial.println(colorChangeToNextState);}
-    lastColorChangeDeviceId = deviceId;
-    colorLoopCount = 0;
+  if (D_SERIAL) {
+    Serial.print("get Color From Server Final color: ");
+    Serial.print(finalColor);
+    Serial.print(", ");
+    Serial.println(colorChangeToNextState);
   }
+  lastColorChangeDeviceId = deviceId;
+  colorLoopCount = 0;
+}
 
 void changeState(unsigned char newState) {
   if (D_SERIAL) { Serial.print("state: "); Serial.println(newState); }
-    prevState = state;
-    state = newState;
-    loopCount = 0;
-    initBrightness = brightness;
-    brightnessDistanceToNextState = envelopes[newState][END_VALUE] - brightness;
+  prevState = state;
+  state = newState;
+  loopCount = 0;
+  initBrightness = brightness;
+  brightnessDistanceToNextState = envelopes[newState][END_VALUE] - brightness;
 }
 
 void updatePixelSettings() {
@@ -552,7 +560,7 @@ void stateAndPixelMagic() {
       break;
     case DECAY:
       updatePixelSettings();
-      if ((loopCount >= envelopes[DECAY][TIME]) || (currentEvent == tEVENT_RELEASE))  {
+      if ((loopCount >= envelopes[DECAY][TIME]) || (currentEvent == tEVENT_RELEASE)) {
         changeState(SUSTAIN);
       }
       break;
