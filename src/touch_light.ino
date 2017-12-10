@@ -117,6 +117,7 @@ float tBaseline;
 void setup()
 {
   Particle.function("poll", pollLamp);
+
   if (D_SERIAL) Serial.begin(9600);
   if (D_WIFI) {
     Particle.variable("tDelay", &tDelayExternal, DOUBLE);
@@ -134,32 +135,18 @@ void setup()
       myId = i;
       break;
     }
-    finalColor = random(256);
+    // I believe this does nothing
+    // finalColor = random(256);
   }
 
   flashWhite(&strip);
 
   // Calibrate touch sensor- Keep hands off!!!
-  tBaseline = touchSampling();    // initialize to first reading
+  tBaseline = touchSampling(); // initialize to first reading
   if (D_WIFI) tBaselineExternal = tBaseline;
 
-  for (int i = 0; i < 256; i++) {
-    uint32_t color = wheelColor(i, 255);
-    for (byte j = 0; j < strip.numPixels(); j++) {
-      strip.setPixelColor(j, color);
-      strip.show();
-    }
-    delay(1);
-  }
-
-  for (int j = 255; j >= 0; j--) {
-    uint32_t color = wheelColor(255, j);
-    for (byte k = 0; k < strip.numPixels(); k++) {
-      strip.setPixelColor(k, color);
-      strip.show();
-    }
-    delay(1);
-  }
+  traverseColorWheel(&strip);
+  fade(&strip);
 }
 
 void loop() {
@@ -192,6 +179,30 @@ void flashWhite(Adafruit_NeoPixel* strip) {
   }
   strip->show();
   delay(250);
+}
+
+void traverseColorWheel(Adafruit_NeoPixel* strip) {
+  int numPixels = strip->numPixels();
+  for (int i = 0; i < 256; i++) {
+    uint32_t color = wheelColor(i, 255);
+    for (byte j = 0; j < numPixels; j++) {
+      strip->setPixelColor(j, color);
+      strip->show();
+    }
+    delay(1);
+  }
+}
+
+void fade(Adafruit_NeoPixel* strip) {
+  int numPixels = strip->numPixels();
+  for (int j = 255; j >= 0; j--) {
+    uint32_t color = wheelColor(255, j);
+    for (byte k = 0; k < numPixels; k++) {
+      strip->setPixelColor(k, color);
+      strip->show();
+    }
+    delay(1);
+  }
 }
 
 //============================================================
