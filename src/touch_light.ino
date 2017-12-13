@@ -84,6 +84,8 @@ const long envelopes[6][2] = {
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 // STATE
+unsigned char myId = 0;
+
 int currentEvent = tEVENT_NONE;
 
 int initColor = 0;
@@ -108,7 +110,6 @@ double tDelayExternal = 0;
 double tBaselineExternal = 0;
 
 uint8_t shouldUpdateServer = tEVENT_NONE;
-unsigned char myId = 0;
 
 // timestamps
 unsigned long tS;
@@ -133,14 +134,7 @@ void setup()
   pinMode(sPin, OUTPUT);
   attachInterrupt(rPin, touchSense, RISING);
 
-  for (int i = 1; i <= NUM_PARTICLES; i++) {
-    if (!particleId[i].compareTo(Particle.deviceID())) {
-      myId = i;
-      break;
-    }
-    // I believe this does nothing
-    // finalColor = random(256);
-  }
+  myId = getMyId(particleId, NUM_PARTICLES);
 
   flashWhite(&strip);
 
@@ -170,6 +164,14 @@ void loop() {
 //------------------------------------------------------------
 // Functions used during setup
 //------------------------------------------------------------
+int getMyId(String particleId[], int numParticles) {
+  for (int i = 1; i <= numParticles; i++) {
+    if (!particleId[i].compareTo(Particle.deviceID())) {
+      return i;
+    }
+  }
+}
+
 void flashWhite(Adafruit_NeoPixel* strip) {
   int numPixels = strip->numPixels();
   for (byte j = 0; j < numPixels; j++) {
