@@ -81,6 +81,13 @@ const long envelopes[6][2] = {
 #define tEVENT_TOUCH 1
 #define tEVENT_RELEASE 2
 
+String eventTypes[] = {
+  "None",
+  "Touch",
+  "Release"
+};
+
+
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 // STATE
@@ -148,14 +155,11 @@ void setup()
 
 void loop() {
   int touchEvent = touchEventCheck();
-  if (touchEvent == tEVENT_TOUCH) {
-    if (D_SERIAL) Serial.println("touch");
-    currentEvent = touchEvent;
-    state = PRE_ATTACK;
-  } else if (touchEvent == tEVENT_RELEASE) {
-    if (D_SERIAL) Serial.println("release");
-    currentEvent = touchEvent;
-  }
+  if (touchEvent == tEVENT_NONE) return;
+
+  currentEvent = touchEvent;
+  if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
+  if(touchEvent == tEVENT_TOUCH) state = PRE_ATTACK;
 }
 
 //============================================================
