@@ -337,14 +337,13 @@ int pollLamp(String command) {
   static bool serverShouldBeUpdated = false;
   static unsigned char serverAndLocalDifferentLoopCount = 0;
 
-  static uint32_t lastLocalResponse;
   uint32_t localResponse;
 
   int lastServerColor = lastServerColorAndTouch & 0xff;
 
   uint32_t serverResponse = command.toInt();
   unsigned char deviceId = serverResponse >> 10;
-  int serverColorAndTouch = serverResponse & 0x03ff; // color and touch
+  int serverColorAndTouch = serverResponse & 0x03ff;
   int serverColor = serverColorAndTouch & 0xff;
   int serverTouch = serverColorAndTouch >> 8;
 
@@ -357,39 +356,59 @@ int pollLamp(String command) {
     Serial.println(serverColorAndTouch & 0xff);
   }
 
-  /*
-  if (serverColor == lastServerColor && serverShouldBeUpdated && false) {
-    if (D_SERIAL) Serial.println("* SERVER LOST LAST UPDATE. RESENDING");
-    return lastLocalResponse;
-  }
-  */
-
-  if (
-    (serverColorAndTouch != lastServerColorAndTouch) && (deviceId != myId) && (deviceId != 0)
-  ) { // server update
+  if (deviceId == myId || deviceId == 0 || serverColorAndTouch == lastServerColorAndTouch) {
+    if (serverShouldBeUpdated) shouldUpdateServer = tEVENT_TOUCH;
+    if (shouldUpdateServer) {
+      serverShouldBeUpdated = false;
+      serverAndLocalDifferentLoopCount = 0;
+      localResponse = (myId << 10) + (shouldUpdateServer << 8) + (finalColor & 0xff);
+    } else {
+      if ((finalColor & 0xff) != serverColor) {
+        if (++serverAndLocalDifferentLoopCount >= 3) {
+          serverShouldBeUpdated = true;
+          if (D_SERIAL) { Serial.println("*** forcing server update"); }
+        }
+      }
+      localResponse = serverResponse;
+    }
+  } else {
+    // Server response is from other light with a color update
     serverAndLocalDifferentLoopCount = 0;
     if (D_SERIAL) Serial.println("SERVER -> LOCAL");
+
     // if the color changed but we have a release, we missed an event.
     // and if so, create the missing event
     // TODO: a queue for events would be a better solution but hey, it's Dec 24.
     if (serverColor != lastServerColor && serverTouch == tEVENT_RELEASE) {
         serverTouch = tEVENT_TOUCH;
-        serverColorAndTouch = (serverTouch << 8) + (serverColorAndTouch & 0xff);
+        serverColorAndTouch = (serverTouch << 8) + serverColor;
         if (D_SERIAL) Serial.println("*** missing server touch event created ***");
     }
 
-    if (shouldUpdateServer) { // local update
+    if (!shouldUpdateServer) { // no local update
+      if (D_SERIAL) Serial.println("-no local update");
+      if (serverTouch == tEVENT_TOUCH) {
+        if (D_SERIAL) Serial.println("--server touch");
+        setColor(serverColor, deviceId);
+        changeState(ATTACK);
+      } else {
+        if (D_SERIAL) Serial.println("--server release");
+        changeState(RELEASE1);
+      }
+      localResponse = serverResponse;
+    } else { // server + local update
       if (D_SERIAL) { Serial.print("----& LOCAL -> SERVER: "); Serial.println(shouldUpdateServer); }
       if (shouldUpdateServer == tEVENT_TOUCH) {
         if (D_SERIAL) Serial.println("---- local touch");
         if (serverTouch == tEVENT_TOUCH) {
           if (D_SERIAL) Serial.println("---- server touch");
-          lastColorChangeDeviceId = deviceId;
-          generateColor();
+          int newColor = generateColor(finalColor, prevState, deviceId);
+          setColor(newColor, myId);
           changeState(ATTACK);
         } else {
           if (D_SERIAL) Serial.println("---- server release");
-          generateColor();
+          int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
+          setColor(newColor, myId);
         }
         // serverTouch == touch or release:
         localResponse = (myId << 10) + (shouldUpdateServer << 8) + (finalColor & 0xff);
@@ -397,7 +416,7 @@ int pollLamp(String command) {
         if (D_SERIAL) Serial.println("---- local release");
         if (serverTouch == tEVENT_TOUCH) {
           if (D_SERIAL) Serial.println("---- server touch");
-          getColorFromServer(serverColor, deviceId);
+          setColor(serverColor, deviceId);
           changeState(ATTACK);
         } else { // server and local have tEVENT_RELEASE
           if (D_SERIAL) Serial.println("---- server release");
@@ -405,35 +424,7 @@ int pollLamp(String command) {
         }
         localResponse = serverResponse;
       }
-    } else { // no local update
-      if (D_SERIAL) Serial.println("-no local update");
-      if (serverTouch == tEVENT_TOUCH) {
-        if (D_SERIAL) Serial.println("--server touch");
-        getColorFromServer(serverColor, deviceId);
-        changeState(ATTACK);
-      } else {
-        if (D_SERIAL) Serial.println("--server release");
-        changeState(RELEASE1);
-      }
-      localResponse = serverResponse;
     }
-  } else { // no server update
-    if (shouldUpdateServer || serverShouldBeUpdated) {
-      if (serverShouldBeUpdated) shouldUpdateServer = tEVENT_TOUCH;
-      serverShouldBeUpdated = false;
-      serverAndLocalDifferentLoopCount = 0;
-      if (D_SERIAL) Serial.println("LOCAL -> SERVER");
-      localResponse = (myId << 10) + (shouldUpdateServer << 8) + (finalColor & 0xff);
-    } else { // no updates at all
-      if (((finalColor & 0xff) != (serverColorAndTouch & 0xff)) && (deviceId != 0)) {
-        if (++serverAndLocalDifferentLoopCount > 2) {
-          //lastColorChangeDeviceId = myId;
-          serverShouldBeUpdated = true;
-          if (D_SERIAL) { Serial.println("*** forcing server update"); }
-        }
-      }
-    }
-    localResponse = serverResponse;
   }
 
   if (D_SERIAL) {
@@ -445,17 +436,12 @@ int pollLamp(String command) {
     Serial.println(localResponse & 0xff);
   }
   
-  if (shouldUpdateServer && localResponse != serverResponse) {
-    lastLocalResponse = localResponse;
-    //serverShouldBeUpdated = true;
-  }
-
   shouldUpdateServer = tEVENT_NONE;
-  lastServerColorAndTouch = (serverColorAndTouch == 0 ? lastServerColorAndTouch : serverColorAndTouch);
+  if (serverColorAndTouch) lastServerColorAndTouch = serverColorAndTouch;
   return localResponse;
 }
 
-void getColorFromServer(int color, unsigned char deviceId) {
+void setColor(int color, unsigned char deviceId) {
   lastColorChangeDeviceId = deviceId;
   initColor = currentColor;
   finalColor = color;
@@ -469,23 +455,24 @@ void getColorFromServer(int color, unsigned char deviceId) {
   }
 }
 
-void generateColor() {
+int generateColor(int currentFinalColor, unsigned char prevState, int lastColorChangeDeviceId) {
+  int color = 0;
   Serial.println("generating color...");
-  initColor = currentColor;
   if (prevState == OFF) {
-    initColor = currentColor = finalColor = random(256);
+    // Test if we can only return color
+    initColor = currentColor = color = random(256);
   } else {
     bool foreignId = (lastColorChangeDeviceId != myId);
     int minChange = minMaxColorDiffs[foreignId][0];
     int maxChange = minMaxColorDiffs[foreignId][1];
     int direction = random(2) * 2 - 1;
     int magnitude = random(minChange, maxChange + 1);
-    finalColor += direction * magnitude;
-    finalColor = (finalColor + 256) % 256;
-    // finalColor = 119; // FORCE A COLOR
+    color = currentFinalColor + direction * magnitude;
+    color = (color + 256) % 256;
+    // color = 119; // FORCE A COLOR
   }
-  lastColorChangeDeviceId = myId;
   if (D_SERIAL) { Serial.print("final color: "); Serial.println(finalColor); }
+  return color;
 }
 
 void changeState(unsigned char newState) {
@@ -497,12 +484,14 @@ void changeState(unsigned char newState) {
 }
 
 void stateAndPixelMagic() {
+  int newColor = 0;
+
   switch (state) {
     case PRE_ATTACK:
-      generateColor();
+      newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
+      setColor(newColor, myId);
       shouldUpdateServer = tEVENT_TOUCH;
       changeState(ATTACK);
-      colorLoopCount = 0;
       break;
     case ATTACK:
       currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
