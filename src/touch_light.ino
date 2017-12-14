@@ -251,14 +251,14 @@ long touchSampling() {
 
     // accumulate the RC delay samples
     // ignore readings when micros() overflows
-    if (tR>tS) {
+    if (tR > tS) {
       tDelay = tDelay + (tR - tS);
       mSample++;
     }
   }
 
   // calculate average RC delay [usec]
-  if ((tDelay > 0) && (mSample>0)) {
+  if ((tDelay > 0) && (mSample > 0)) {
     tDelay = tDelay/mSample;
   } else {
     tDelay = 0;     // this is an error condition!
@@ -266,7 +266,7 @@ long touchSampling() {
   if (D_SERIAL) Serial.println(tDelay);
   if (D_WIFI) tDelayExternal = tDelay;
   // autocalibration using exponential moving average on data below specified point
-  if (tDelay<(tBaseline + tBaseline/BASELINE_SENSITIVITY)) {
+  if (tDelay < (tBaseline + tBaseline/BASELINE_SENSITIVITY)) {
     tBaseline = tBaseline + (tDelay - tBaseline)/BASELINE_VARIANCE;
     if (D_WIFI) tBaselineExternal = tBaseline;
   }
