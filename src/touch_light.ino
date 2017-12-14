@@ -100,7 +100,7 @@ int currentColor = 0;   // 0 to 255
 int finalColor = 0;     // 0 to 255
 
 int initBrightness = 0; // 0 to 255
-int brightness = 0;     // 0 to 255
+int currentBrightness = 0;     // 0 to 255
 
 unsigned char prevState = OFF;
 unsigned char state = OFF;
@@ -489,7 +489,7 @@ void generateColor() {
 void changeState(unsigned char newState) {
   prevState = state;
   state = newState;
-  initBrightness = brightness;
+  initBrightness = currentBrightness;
   loopCount = 0;
   if (D_SERIAL) { Serial.print("state: "); Serial.println(newState); }
 }
@@ -503,7 +503,7 @@ void stateAndPixelMagic() {
       colorLoopCount = 0;
       break;
     case ATTACK:
-      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
       if (currentColor != finalColor) {
         currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
       }
@@ -513,7 +513,7 @@ void stateAndPixelMagic() {
       }
       break;
     case DECAY:
-      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
       if (currentColor != finalColor) {
         currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
       }
@@ -522,7 +522,7 @@ void stateAndPixelMagic() {
       }
       break;
     case SUSTAIN:
-      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
       if (currentColor != finalColor) {
         currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
       }
@@ -533,7 +533,7 @@ void stateAndPixelMagic() {
       }
       break;
     case RELEASE1:
-      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
       if (currentColor != finalColor) {
         currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
       }
@@ -542,7 +542,7 @@ void stateAndPixelMagic() {
       }
       break;
     case RELEASE2:
-      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
       if (currentColor != finalColor) {
         currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
       }
@@ -551,14 +551,14 @@ void stateAndPixelMagic() {
       }
       break;
     case OFF:
-      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      currentBrightness = getCurrentBrightness(state, initBrightness, loopCount);
       if (currentColor != finalColor) {
         currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
       }
       break;
   }
 
-  uint32_t colorAndBrightness = wheelColor(currentColor, brightness);
+  uint32_t colorAndBrightness = wheelColor(currentColor, currentBrightness);
   updateNeoPixels(colorAndBrightness);
   loopCount++;
   colorLoopCount++;
