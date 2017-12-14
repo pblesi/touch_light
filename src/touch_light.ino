@@ -102,9 +102,6 @@ int finalColor = 0;     // 0 to 255
 int initBrightness = 0; // 0 to 255
 int brightness = 0;     // 0 to 255
 
-int brightnessDistanceToNextState = 0;
-int colorChangeToNextState = 0;
-
 unsigned char prevState = OFF;
 unsigned char state = OFF;
 
@@ -457,16 +454,16 @@ int pollLamp(String command) {
 }
 
 void getColorFromServer(int color, unsigned char deviceId) {
-  colorLoopCount = 0;
+  lastColorChangeDeviceId = deviceId;
   initColor = currentColor;
   finalColor = color;
-  colorChangeToNextState = calcColorChange(initColor, finalColor);
-  lastColorChangeDeviceId = deviceId;
+  colorLoopCount = 0;
   if (D_SERIAL) {
     Serial.print("get Color From Server Final color: ");
+    Serial.print(initColor);
+    Serial.print(", ");
     Serial.print(finalColor);
     Serial.print(", ");
-    Serial.println(colorChangeToNextState);
   }
 }
 
@@ -485,25 +482,16 @@ void generateColor() {
     finalColor = (finalColor + 256) % 256;
     // finalColor = 119; // FORCE A COLOR
   }
-  colorChangeToNextState = calcColorChange(initColor, finalColor);
   lastColorChangeDeviceId = myId;
   if (D_SERIAL) { Serial.print("final color: "); Serial.println(finalColor); }
 }
 
-int calcColorChange(int currentColor, int finalColor) {
-  int colorChange = finalColor - currentColor;
-  int direction = (colorChange < 0) * 2 - 1;
-  colorChange += direction * (abs(colorChange) > 127) * 256;
-  return colorChange;
-}
-
 void changeState(unsigned char newState) {
-  if (D_SERIAL) { Serial.print("state: "); Serial.println(newState); }
   prevState = state;
   state = newState;
-  loopCount = 0;
   initBrightness = brightness;
-  brightnessDistanceToNextState = envelopes[newState][END_VALUE] - brightness;
+  loopCount = 0;
+  if (D_SERIAL) { Serial.print("state: "); Serial.println(newState); }
 }
 
 void stateAndPixelMagic() {
@@ -515,20 +503,29 @@ void stateAndPixelMagic() {
       colorLoopCount = 0;
       break;
     case ATTACK:
-      updatePixelSettings();
+      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      if (currentColor != finalColor) {
+        currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
+      }
       currentEvent = tEVENT_NONE;
       if (loopCount >= envelopes[ATTACK][TIME]) {
         changeState(DECAY);
       }
       break;
     case DECAY:
-      updatePixelSettings();
+      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      if (currentColor != finalColor) {
+        currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
+      }
       if ((loopCount >= envelopes[DECAY][TIME]) || (currentEvent == tEVENT_RELEASE)) {
         changeState(SUSTAIN);
       }
       break;
     case SUSTAIN:
-      updatePixelSettings();
+      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      if (currentColor != finalColor) {
+        currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
+      }
       if ((loopCount >= envelopes[SUSTAIN][TIME]) || (currentEvent == tEVENT_RELEASE)) {
         changeState(RELEASE1);
         shouldUpdateServer = tEVENT_RELEASE;
@@ -536,19 +533,28 @@ void stateAndPixelMagic() {
       }
       break;
     case RELEASE1:
-      updatePixelSettings();
+      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      if (currentColor != finalColor) {
+        currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
+      }
       if (loopCount >= envelopes[RELEASE1][TIME]) {
         changeState(RELEASE2);
       }
       break;
     case RELEASE2:
-      updatePixelSettings();
+      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      if (currentColor != finalColor) {
+        currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
+      }
       if (loopCount >= envelopes[RELEASE2][TIME]) {
         changeState(OFF);
       }
       break;
     case OFF:
-      brightness = 0;
+      brightness = getCurrentBrightness(state, initBrightness, loopCount);
+      if (currentColor != finalColor) {
+        currentColor = getCurrentColor(finalColor, initColor, colorLoopCount);
+      }
       break;
   }
 
@@ -558,16 +564,25 @@ void stateAndPixelMagic() {
   colorLoopCount++;
 }
 
-void updatePixelSettings() {
-  brightness = min(255, max(0, initBrightness + loopCount * brightnessDistanceToNextState / envelopes[state][TIME]));
+int getCurrentBrightness(unsigned char state, int initBrightness, int loopCount) {
+  if (state == OFF) return 0;
+  int brightnessDistance = envelopes[state][END_VALUE] - initBrightness;
+  int brightnessDistanceXElapsedTime = brightnessDistance * loopCount / envelopes[state][TIME];
+  return min(255, max(0, initBrightness + brightnessDistanceXElapsedTime));
+}
 
-  if (colorLoopCount > LOOPS_TO_FINAL_COLOR) {
-    currentColor = finalColor;
-  }
+int getCurrentColor(int finalColor, int initColor, int colorLoopCount) {
+  if (colorLoopCount > LOOPS_TO_FINAL_COLOR) return finalColor;
+  int colorDistance = calcColorChange(initColor, finalColor);
+  int colorDistanceXElapsedTime = colorDistance * colorLoopCount / LOOPS_TO_FINAL_COLOR;
+  return (256 + initColor + colorDistanceXElapsedTime) % 256;
+}
 
-  if (currentColor != finalColor) {
-    currentColor = (initColor + 256 + colorLoopCount * colorChangeToNextState / LOOPS_TO_FINAL_COLOR ) % 256;
-  }
+int calcColorChange(int currentColor, int finalColor) {
+  int colorChange = finalColor - currentColor;
+  int direction = (colorChange < 0) * 2 - 1;
+  colorChange += direction * (abs(colorChange) > 127) * 256;
+  return colorChange;
 }
 
 void updateNeoPixels(uint32_t color) {
