@@ -28,13 +28,16 @@ String particleId[] = {
 };
 
 // TWEAKABLE VALUES FOR CAP SENSING. THE BELOW VALUES WORK WELL AS A STARTING PLACE:
-// BASELINE_VARIANCE: The higher the number the less the baseline is affected by current readings. (was 4)
+// BASELINE_VARIANCE: The higher the number the less the baseline is affected by
+// current readings. (was 4)
 #define BASELINE_VARIANCE 512.0
 // SENSITIVITY: Integer. Higher is more sensitive (was 8)
 #define SENSITIVITY 8
-// BASELINE_SENSITIVITY: Integer. A trigger point such that values exceeding this point will not affect the baseline. Higher values make the trigger point sooner. (was 16)
+// BASELINE_SENSITIVITY: Integer. A trigger point such that values exceeding this point
+// will not affect the baseline. Higher values make the trigger point sooner. (was 16)
 #define BASELINE_SENSITIVITY 16
-// SAMPLE_SIZE: Number of samples to take for one reading. Higher is more accurate but large values cause some latency.(was 32)
+// SAMPLE_SIZE: Number of samples to take for one reading. Higher is more accurate
+// but large values cause some latency.(was 32)
 #define SAMPLE_SIZE 512
 #define SAMPLES_BETWEEN_PIXEL_UPDATES 32
 #define LOOPS_TO_FINAL_COLOR 150
@@ -44,10 +47,18 @@ const int minMaxColorDiffs[2][2] = {
   {50,128}  // min/Max if color change last color change from different touch light
 };
 
-// CONFIGURATION SETTINGS END
+// END VALUE, TIME
+// 160 is approximately 1 second
+const long envelopes[6][2] = {
+  {0, 0},      // OFF
+  {255, 30} ,  // ATTACK
+  {200, 240},  // DECAY
+  {200, 1000}, // SUSTAIN
+  {150, 60},   // RELEASE1
+  {0, 1000000} // RELEASE2 (65535 is about 6'45")
+};
 
-int sPin = D4;
-int rPin = D3;
+// CONFIGURATION SETTINGS END
 
 // STATES:
 #define PRE_ATTACK 0
@@ -61,22 +72,6 @@ int rPin = D3;
 #define END_VALUE 0
 #define TIME 1
 
-// END VALUE, TIME
-// 160 is approximately 1 second
-const long envelopes[6][2] = {
-  {0, 0},      // OFF
-  {255, 30} ,  // ATTACK
-  {200, 240},  // DECAY
-  {200, 1000}, // SUSTAIN
-  {150, 60},   // RELEASE1
-  {0, 1000000} // RELEASE2 (65535 is about 6'45")
-};
-
-// NEOPIXEL
-#define PIXEL_PIN D2
-#define PIXEL_COUNT 24
-#define PIXEL_TYPE WS2812B
-
 #define tEVENT_NONE 0
 #define tEVENT_TOUCH 1
 #define tEVENT_RELEASE 2
@@ -87,8 +82,13 @@ String eventTypes[] = {
   "Release"
 };
 
+int sPin = D4;
+int rPin = D3;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
+// NEOPIXEL
+#define PIXEL_PIN D2
+#define PIXEL_COUNT 24
+#define PIXEL_TYPE WS2812B
 
 // STATE
 unsigned char myId = 0;
@@ -99,8 +99,8 @@ int initColor = 0;
 int currentColor = 0;   // 0 to 255
 int finalColor = 0;     // 0 to 255
 
-int initBrightness = 0; // 0 to 255
-int currentBrightness = 0;     // 0 to 255
+int initBrightness = 0;    // 0 to 255
+int currentBrightness = 0; // 0 to 255
 
 unsigned char prevState = OFF;
 unsigned char state = OFF;
@@ -110,9 +110,6 @@ unsigned char lastColorChangeDeviceId = 0;
 long loopCount = 0;
 long colorLoopCount = 0;
 
-double tDelayExternal = 0;
-double tBaselineExternal = 0;
-
 uint8_t shouldUpdateServer = tEVENT_NONE;
 
 // timestamps
@@ -121,6 +118,11 @@ volatile unsigned long tR;
 
 // reading and baseline
 float tBaseline;
+
+double tDelayExternal = 0;
+double tBaselineExternal = 0;
+
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 void setup()
 {
