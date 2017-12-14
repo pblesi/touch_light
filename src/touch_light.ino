@@ -169,11 +169,14 @@ void loop() {
 // Functions used during setup
 //------------------------------------------------------------
 int getMyId(String particleId[], int numParticles) {
+  int id = 0;
   for (int i = 1; i <= numParticles; i++) {
     if (!particleId[i].compareTo(Particle.deviceID())) {
-      return i;
+      id = i;
+      break;
     }
   }
+  return id;
 }
 
 void flashWhite(Adafruit_NeoPixel* strip) {
