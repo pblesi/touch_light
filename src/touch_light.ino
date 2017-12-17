@@ -160,13 +160,19 @@ void loop() {
   int touchEvent = touchEventCheck();
   if (touchEvent == tEVENT_NONE) return;
 
-  setEvent(touchEvent);
+  // Random eventTimePrecision prevents ties with other
+  // server events. This allows us to determine dominant
+  // color in the event of ties.
+  setEvent(touchEvent, Time.now(), random(INT_MAX));
+
   if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
   if (touchEvent == tEVENT_TOUCH) {
     int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
     setColor(newColor, prevState, myId);
     changeState(ATTACK, LOCAL_CHANGE);
   }
+
+  // Publish periodic updates
 }
 
 //============================================================
@@ -235,7 +241,7 @@ long touchSampling() {
 
   for (int i = 0; i < SAMPLE_SIZE; i++) {
     if (!(i % SAMPLES_BETWEEN_PIXEL_UPDATES)) {
-      stateAndPixelMagic();
+      updateState();
     }
     pinMode(rPin, OUTPUT); // discharge capacitance at rPin
     digitalWrite(sPin,LOW);
@@ -340,13 +346,10 @@ int touchEventCheck() {
   return tEvent;
 }
 
-void setEvent(int event) {
+void setEvent(int event, int timeOfEvent, int timePrecision) {
   currentEvent = event;
-  // Random eventTimePrecision prevents ties with other
-  // server events. This allows us to determine dominant
-  // color in the event of ties.
-  eventTime = Time.now();
-  eventTimePrecision = random(INT_MAX);
+  eventTime = timeOfEvent;
+  eventTimePrecision = timePrecision;
 }
 
 int pollLamp(String command) {
@@ -505,10 +508,9 @@ void changeState(unsigned char newState, int remoteChange) {
   if (newState == RELEASE1) shouldUpdateServer = tEVENT_RELEASE; // Notify server of release
 }
 
-void stateAndPixelMagic() {
+void updateState() {
   switch (state) {
     case ATTACK:
-      currentEvent = tEVENT_NONE;
       if (loopCount >= envelopes[ATTACK][TIME]) {
         changeState(DECAY, LOCAL_CHANGE);
       }
@@ -521,7 +523,6 @@ void stateAndPixelMagic() {
     case SUSTAIN:
       if ((loopCount >= envelopes[SUSTAIN][TIME]) || (currentEvent == tEVENT_RELEASE)) {
         changeState(RELEASE1, LOCAL_CHANGE);
-        currentEvent = tEVENT_NONE;
       }
       break;
     case RELEASE1:
