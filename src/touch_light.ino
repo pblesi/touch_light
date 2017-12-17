@@ -94,6 +94,8 @@ int rPin = D3;
 unsigned char myId = 0;
 
 int currentEvent = tEVENT_NONE;
+int eventTime = Time.now();
+int eventTimePrecision = random(INT_MAX);
 
 int initColor = 0;
 int currentColor = 0;   // 0 to 255
@@ -156,7 +158,7 @@ void loop() {
   int touchEvent = touchEventCheck();
   if (touchEvent == tEVENT_NONE) return;
 
-  currentEvent = touchEvent;
+  setEvent(touchEvent);
   if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
   if(touchEvent == tEVENT_TOUCH) state = PRE_ATTACK;
 }
@@ -330,6 +332,15 @@ int touchEventCheck() {
   // update last reading
   touchLast = touchNow;
   return tEvent;
+}
+
+void setEvent(int event) {
+  currentEvent = event;
+  // Random eventTimePrecision prevents ties with other
+  // server events. This allows us to determine dominant
+  // color in the event of ties.
+  eventTime = Time.now();
+  eventTimePrecision = random(INT_MAX);
 }
 
 int pollLamp(String command) {
