@@ -105,7 +105,7 @@ int currentBrightness = 0; // 0 to 255
 unsigned char prevState = OFF;
 unsigned char state = OFF;
 
-unsigned char lastColorChangeDeviceId = 0;
+unsigned char lastColorChangeDeviceId = 1;
 
 long loopCount = 0;
 long colorLoopCount = 0;
