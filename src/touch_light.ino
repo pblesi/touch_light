@@ -58,6 +58,8 @@ const long envelopes[6][2] = {
   {0, 1000000} // RELEASE2 (65535 is about 6'45")
 };
 
+#define PERIODIC_UPDATE_TIME 5 // seconds
+
 // CONFIGURATION SETTINGS END
 
 // STATES:
@@ -113,8 +115,7 @@ unsigned char lastColorChangeDeviceId = 1;
 
 long loopCount = 0;
 long colorLoopCount = 0;
-
-uint8_t shouldUpdateServer = tEVENT_NONE;
+int lastPeriodicUpdate = Time.now();
 
 // timestamps
 unsigned long tS;
@@ -130,7 +131,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 void setup()
 {
-  Particle.function("poll", pollLamp);
+  Particle.subscribe("touch_event", handleTouchEvent, MY_DEVICES);
 
   if (D_SERIAL) Serial.begin(9600);
   if (D_WIFI) {
@@ -158,7 +159,16 @@ void setup()
 
 void loop() {
   int touchEvent = touchEventCheck();
-  if (touchEvent == tEVENT_NONE) return;
+
+  if (touchEvent == tEVENT_NONE) {
+    // Publish periodic updates to synchronize state
+    bool touchedBefore = currentEvent != tEVENT_NONE;
+    if (lastPeriodicUpdate < Time.now() - PERIODIC_UPDATE_TIME && touchedBefore) {
+      publishTouchEvent(currentEvent, finalColor, eventTime, eventTimePrecision);
+      lastPeriodicUpdate = Time.now();
+    }
+    return;
+  }
 
   // Random eventTimePrecision prevents ties with other
   // server events. This allows us to determine dominant
@@ -171,8 +181,6 @@ void loop() {
     setColor(newColor, prevState, myId);
     changeState(ATTACK, LOCAL_CHANGE);
   }
-
-  // Publish periodic updates
 }
 
 //============================================================
@@ -352,113 +360,41 @@ void setEvent(int event, int timeOfEvent, int timePrecision) {
   eventTimePrecision = timePrecision;
 }
 
-int pollLamp(String command) {
-  static int lastServerColorAndTouch = 0;
-  static bool serverShouldBeUpdated = false;
-  static unsigned char serverAndLocalDifferentLoopCount = 0;
+void handleTouchEvent(const char *event, const char *data) {
+  String eventData = String(data);
+  int deviceIdEnd = eventData.indexOf(',');
+  int deviceId = eventData.substring(0, deviceIdEnd).toInt();
+  int eventEnd = eventData.indexOf(',', deviceIdEnd + 1);
+  int serverEvent = eventData.substring(deviceIdEnd + 1, eventEnd).toInt();
+  int colorEnd = eventData.indexOf(',', eventEnd + 1);
+  int serverColor = eventData.substring(eventEnd + 1, colorEnd).toInt();
+  int eventTimeEnd = eventData.indexOf(',', colorEnd + 1);
+  int serverEventTime = eventData.substring(colorEnd + 1, eventTimeEnd).toInt();
+  int serverEventTimePrecision = eventData.substring(eventTimeEnd + 1).toInt();
 
-  uint32_t localResponse;
-
-  int lastServerColor = lastServerColorAndTouch & 0xff;
-
-  uint32_t serverResponse = command.toInt();
-  unsigned char deviceId = serverResponse >> 10;
-  int serverColorAndTouch = serverResponse & 0x03ff;
-  int serverColor = serverColorAndTouch & 0xff;
-  int serverTouch = serverColorAndTouch >> 8;
-
-  if (D_SERIAL) {
-    Serial.print("received id: ");
-    Serial.print(deviceId);
-    Serial.print(" cmd: ");
-    Serial.print(serverTouch);
-    Serial.print(" color: ");
-    Serial.println(serverColorAndTouch & 0xff);
+  if (false) {
+    String response = "deviceId: " + String(deviceId) + " " +
+                      "serverEvent: " + String(serverEvent) + " " +
+                      "serverColor: " + String(serverColor) + " " +
+                      "localEventTime: " + String(eventTime) + " " +
+                      "serverEventTime: " + String(serverEventTime) + " " +
+                      "serverEventTimePrecision: " + String(serverEventTimePrecision);
+    Particle.publish("touch_response", response, 61, PRIVATE);
   }
 
-  if (deviceId == myId || deviceId == 0 || serverColorAndTouch == lastServerColorAndTouch) {
-    if (serverShouldBeUpdated) shouldUpdateServer = tEVENT_TOUCH;
-    if (shouldUpdateServer) {
-      serverShouldBeUpdated = false;
-      serverAndLocalDifferentLoopCount = 0;
-      localResponse = (myId << 10) + (shouldUpdateServer << 8) + (finalColor & 0xff);
-    } else {
-      if ((finalColor & 0xff) != serverColor) {
-        if (++serverAndLocalDifferentLoopCount >= 3) {
-          serverShouldBeUpdated = true;
-          if (D_SERIAL) { Serial.println("*** forcing server update"); }
-        }
-      }
-      localResponse = serverResponse;
-    }
+  if (deviceId == myId) return;
+  if (serverEventTime < eventTime) return;
+  if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) return;
+
+  // Valid remote update
+  setEvent(serverEvent, serverEventTime, serverEventTimePrecision);
+
+  if (serverEvent == tEVENT_TOUCH) {
+    setColor(serverColor, prevState, deviceId);
+    changeState(ATTACK, REMOTE_CHANGE);
   } else {
-    // Server response is from other light with a color update
-    serverAndLocalDifferentLoopCount = 0;
-    if (D_SERIAL) Serial.println("SERVER -> LOCAL");
-
-    // if the color changed but we have a release, we missed an event.
-    // and if so, create the missing event
-    // TODO: a queue for events would be a better solution but hey, it's Dec 24.
-    if (serverColor != lastServerColor && serverTouch == tEVENT_RELEASE) {
-        serverTouch = tEVENT_TOUCH;
-        serverColorAndTouch = (serverTouch << 8) + serverColor;
-        if (D_SERIAL) Serial.println("*** missing server touch event created ***");
-    }
-
-    if (!shouldUpdateServer) { // no local update
-      if (D_SERIAL) Serial.println("-no local update");
-      if (serverTouch == tEVENT_TOUCH) {
-        if (D_SERIAL) Serial.println("--server touch");
-        setColor(serverColor, prevState, deviceId);
-        changeState(ATTACK, REMOTE_CHANGE);
-      } else {
-        if (D_SERIAL) Serial.println("--server release");
-        changeState(RELEASE1, REMOTE_CHANGE);
-      }
-      localResponse = serverResponse;
-    } else { // server + local update
-      if (D_SERIAL) { Serial.print("----& LOCAL -> SERVER: "); Serial.println(shouldUpdateServer); }
-      if (shouldUpdateServer == tEVENT_TOUCH) {
-        if (D_SERIAL) Serial.println("---- local touch");
-        if (serverTouch == tEVENT_TOUCH) {
-          if (D_SERIAL) Serial.println("---- server touch");
-          int newColor = generateColor(finalColor, prevState, deviceId);
-          setColor(newColor, prevState, myId);
-          changeState(ATTACK, LOCAL_CHANGE);
-        } else {
-          if (D_SERIAL) Serial.println("---- server release");
-          int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
-          setColor(newColor, prevState, myId);
-        }
-        // serverTouch == touch or release:
-        localResponse = (myId << 10) + (shouldUpdateServer << 8) + (finalColor & 0xff);
-      } else { // local touchEvent == tEVENT_RELEASE
-        if (D_SERIAL) Serial.println("---- local release");
-        if (serverTouch == tEVENT_TOUCH) {
-          if (D_SERIAL) Serial.println("---- server touch");
-          setColor(serverColor, prevState, deviceId);
-          changeState(ATTACK, REMOTE_CHANGE);
-        } else { // server and local have tEVENT_RELEASE
-          if (D_SERIAL) Serial.println("---- server release");
-          changeState(RELEASE1, REMOTE_CHANGE);
-        }
-        localResponse = serverResponse;
-      }
-    }
+    changeState(RELEASE1, REMOTE_CHANGE);
   }
-
-  if (D_SERIAL) {
-    Serial.print("sending id: ");
-    Serial.print(localResponse >> 10 );
-    Serial.print(" cmd: ");
-    Serial.print(localResponse >> 8 & 0x03);
-    Serial.print(" color: ");
-    Serial.println(localResponse & 0xff);
-  }
-  
-  shouldUpdateServer = tEVENT_NONE;
-  if (serverColorAndTouch) lastServerColorAndTouch = serverColorAndTouch;
-  return localResponse;
 }
 
 void setColor(int color, unsigned char prevState, unsigned char deviceId) {
@@ -504,8 +440,18 @@ void changeState(unsigned char newState, int remoteChange) {
 
   if (remoteChange) return;
 
-  if (newState == ATTACK) shouldUpdateServer = tEVENT_TOUCH; // Notify server we were touched
-  if (newState == RELEASE1) shouldUpdateServer = tEVENT_RELEASE; // Notify server of release
+  if (newState == ATTACK || newState == RELEASE1) {
+    publishTouchEvent(currentEvent, finalColor, eventTime, eventTimePrecision);
+  }
+}
+
+void publishTouchEvent(int event, int color, int time, int timePrecision) {
+  String response = String(myId)  + "," +
+                    String(event) + "," +
+                    String(color) + "," +
+                    String(time)  + "," +
+                    String(timePrecision);
+  Particle.publish("touch_event", response, 60, PRIVATE);
 }
 
 void updateState() {
