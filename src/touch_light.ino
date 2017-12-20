@@ -382,6 +382,17 @@ void handleTouchEvent(const char *event, const char *data) {
 
   if (deviceId == myId) return;
   if (serverEventTime < eventTime) return;
+  // Race condition brought colors out of sync
+  if (
+    serverEventTime == eventTime &&
+    serverEventTimePrecision == eventTimePrecision &&
+    serverColor != finalColor &&
+    myId < deviceId
+  ) {
+    setColor(serverColor, prevState, deviceId);
+    changeState(ATTACK, REMOTE_CHANGE);
+    return;
+  }
   if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) return;
 
   // Valid remote update
