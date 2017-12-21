@@ -15,14 +15,14 @@
 #define D_SERIAL false
 #define D_WIFI true
 
-#define NUM_PARTICLES 2 // number of touch lights in your group
+#define NUM_PARTICLES 4 // number of touch lights in your group
 // Number each Filimin starting at 1.
 String particleId[] = {
-  "",                            // 0
+  "",                         // 0
   "330022001547353236343033", // Filimin 1
   "2d0047001247353236343033", // Filimin 2
-  "",                         // Filimin 3
-  ""                          // Filimin 4
+  "2a0026000b47353235303037", // Filimin 3
+  "2e003e001947353236343033"  // Filimin 4
 };
 
 // TWEAKABLE VALUES FOR CAP SENSING. THE BELOW VALUES WORK WELL AS A STARTING PLACE:
