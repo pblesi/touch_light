@@ -19,10 +19,18 @@
 // Number each Filimin starting at 1.
 String particleId[] = {
   "",                         // 0
-  "330022001547353236343033", // Filimin 1
-  "2d0047001247353236343033", // Filimin 2
-  "2a0026000b47353235303037", // Filimin 3
-  "2e003e001947353236343033"  // Filimin 4
+  "330022001547353236343033", // pblesi
+  "2d0047001247353236343033", // carol
+  "2a0026000b47353235303037", // cindy
+  "2e003e001947353236343033"  // tammy
+};
+
+int particleColors[] = {
+  0,   // Green
+  90,  // Magenta
+  170, // Blue
+  79,  // Orange
+  131  // Purple
 };
 
 // TWEAKABLE VALUES FOR CAP SENSING. THE BELOW VALUES WORK WELL AS A STARTING PLACE:
@@ -57,6 +65,7 @@ const long envelopes[6][2] = {
 };
 
 #define PERIODIC_UPDATE_TIME 5 // seconds
+#define COLOR_CHANGE_WINDOW 10 // seconds
 
 // CONFIGURATION SETTINGS END
 
@@ -100,8 +109,9 @@ int eventTime = Time.now();
 int eventTimePrecision = random(INT_MAX);
 
 int initColor = 0;
-int currentColor = 0;   // 0 to 255
-int finalColor = 0;     // 0 to 255
+int currentColor = 0; // 0 to 255
+int finalColor = 0;   // 0 to 255
+int lastLocalColorChangeTime = Time.now();
 
 int initBrightness = 0;    // 0 to 255
 int currentBrightness = 0; // 0 to 255
@@ -423,9 +433,10 @@ void setColor(int color, unsigned char prevState, unsigned char deviceId) {
 
 int generateColor(int currentFinalColor, unsigned char prevState, int lastColorChangeDeviceId) {
   int color = 0;
+  int now = Time.now();
   Serial.println("generating color...");
-  if (prevState == OFF) {
-    color = random(256);
+  if (prevState == OFF || lastLocalColorChangeTime < now - COLOR_CHANGE_WINDOW) {
+    color = particleColors[myId];
   } else {
     bool foreignId = (lastColorChangeDeviceId != myId);
     int minChange = minMaxColorDiffs[foreignId][0];
@@ -436,6 +447,7 @@ int generateColor(int currentFinalColor, unsigned char prevState, int lastColorC
     color = (color + 256) % 256;
     // color = 119; // FORCE A COLOR
   }
+  lastLocalColorChangeTime = now;
   if (D_SERIAL) { Serial.print("final color: "); Serial.println(finalColor); }
   return color;
 }
