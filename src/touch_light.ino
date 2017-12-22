@@ -13,7 +13,7 @@
 // CONFIGURATION SETTINGS START
 // DEBUG SETTINGS:
 #define D_SERIAL false
-#define D_WIFI true
+#define D_WIFI false
 
 #define NUM_PARTICLES 4 // number of touch lights in your group
 // Number each Filimin starting at 1.
