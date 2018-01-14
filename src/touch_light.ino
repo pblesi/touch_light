@@ -10,6 +10,8 @@
 #include "neopixel.h"
 #include "application.h"
 
+#include "wifi_creds.h"
+
 // CONFIGURATION SETTINGS START
 // DEBUG SETTINGS:
 #define D_SERIAL false
@@ -137,8 +139,16 @@ double tBaselineExternal = 0;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
+#ifdef WIFI_CREDENTIALS_SPECIFIED
+SYSTEM_MODE(SEMI_AUTOMATIC);
+#endif
+
 void setup()
 {
+#ifdef WIFI_CREDENTIALS_SPECIFIED
+  setupWifi();
+#endif
+
   Particle.subscribe("touch_event", handleTouchEvent, MY_DEVICES);
 
   if (D_SERIAL) Serial.begin(9600);
@@ -197,6 +207,19 @@ void loop() {
 //------------------------------------------------------------
 // Functions used during setup
 //------------------------------------------------------------
+void setupWifi() {
+  WiFi.on();
+  WiFi.disconnect();
+  WiFi.clearCredentials();
+  int num_wifi_creds = sizeof(wifiCredentials) / sizeof(*wifiCredentials);
+  for (int i = 0; i < num_wifi_creds; i++) {
+    WiFi.setCredentials(wifiCredentials[i][0], wifiCredentials[i][1]);
+  }
+  WiFi.connect();
+  waitUntil(WiFi.ready);
+  Particle.connect();
+}
+
 int getMyId(String particleId[], int numParticles) {
   int id = 0;
   for (int i = 1; i <= numParticles; i++) {
