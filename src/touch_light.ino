@@ -59,7 +59,7 @@ const int minMaxColorDiffs[2][2] = {
 // 160 is approximately 1 second
 const long envelopes[6][2] = {
   {0, 0},      // NOT USED
-  {255, 30} ,  // ATTACK
+  {255, 30},   // ATTACK
   {200, 240},  // DECAY
   {200, 1000}, // SUSTAIN
   {150, 60},   // RELEASE1
