@@ -14,7 +14,10 @@
 // Uncomment the line below if specifying credentials in this file
 // #define WIFI_CREDENTIALS_SPECIFIED
 
-const String wifiCredentials[][2] = {
+// See https://docs.particle.io/reference/firmware/photon/#setcredentials- for details
+struct credentials { char *ssid; char *password; int authType; int cipher; };
+
+const credentials wifiCreds[] = {
   // Set wifi creds here (up to 5) (last entry will be tried first)
-  // {"SSID", "password"}
+  // {.ssid="SSID", .password="password", .authType=WPA2, .cipher=WLAN_CIPHER_AES}
 };

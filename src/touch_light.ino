@@ -211,9 +211,10 @@ void setupWifi() {
   WiFi.on();
   WiFi.disconnect();
   WiFi.clearCredentials();
-  int num_wifi_creds = sizeof(wifiCredentials) / sizeof(*wifiCredentials);
-  for (int i = 0; i < num_wifi_creds; i++) {
-    WiFi.setCredentials(wifiCredentials[i][0], wifiCredentials[i][1]);
+  int numWifiCreds = sizeof(wifiCreds) / sizeof(*wifiCreds);
+  for (int i = 0; i < numWifiCreds; i++) {
+    credentials creds = wifiCreds[i];
+    WiFi.setCredentials(creds.ssid, creds.password, creds.authType, creds.cipher);
   }
   WiFi.connect();
   waitUntil(WiFi.ready);
