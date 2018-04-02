@@ -23,7 +23,7 @@ You can control serial and wifi debug statements by toggling the below keys:
 #define D_WIFI false
 ```
 
-You will want to set NUM_PARTICLES to the number of particles that will be synchronized with each other. You will need to place the id of each particle in the `particleId` array.
+You will want to set `NUM_PARTICLES` to the number of particles that will be synchronized with each other. You will need to place the id of each particle in the `particleId` array.
 
 ```c++
 #define NUM_PARTICLES 4 // number of touch lights in your group
