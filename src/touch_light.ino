@@ -17,6 +17,8 @@
 #define D_SERIAL false
 #define D_WIFI false
 
+String touchEventName = "touch_event";
+
 #define NUM_PARTICLES 4 // number of touch lights in your group
 // Number each Filimin starting at 1.
 String particleId[] = {
@@ -149,7 +151,7 @@ void setup()
   setupWifi();
 #endif
 
-  Particle.subscribe("touch_event", handleTouchEvent, MY_DEVICES);
+  Particle.subscribe(touchEventName, handleTouchEvent, MY_DEVICES);
 
   if (D_SERIAL) Serial.begin(9600);
   if (D_WIFI) {
@@ -496,7 +498,7 @@ void publishTouchEvent(int event, int color, int time, int timePrecision) {
                     String(color) + "," +
                     String(time)  + "," +
                     String(timePrecision);
-  Particle.publish("touch_event", response, 60, PRIVATE);
+  Particle.publish(touchEventName, response, 60, PRIVATE);
 }
 
 void updateState() {
