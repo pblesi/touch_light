@@ -63,13 +63,15 @@ const int minMaxColorDiffs[2][2] = {
 
 // END VALUE, TIME
 // 160 is approximately 1 second
-const long envelopes[6][2] = {
-  {0, 0},      // NOT USED
-  {255, 30},   // ATTACK
-  {200, 240},  // DECAY
-  {200, 1000}, // SUSTAIN
-  {150, 60},   // RELEASE1
-  {0, 1000000} // RELEASE2 (65535 is about 6'45")
+const long envelopes[8][2] = {
+  {0, 0},       // NOT USED
+  {255, 30},    // ATTACK   ~200 ms
+  {205, 240},   // DECAY    ~1.5 sec
+  {205, 1000},  // SUSTAIN  ~6.25 sec
+  {155, 60},    // RELEASE1 ~400 ms to go from ~80% brightness to ~60% brightness
+  {40, 300000}, // RELEASE2 ~30 min to go from ~60% brightness to ~15% brightness
+  {10, 300000}, // RELEASE3 ~30 min to go from ~15% brightness to ~4% brightness
+  {10, 0},      // HOLD     will be held at ~4% brightness forever
 };
 
 #define PERIODIC_UPDATE_TIME 5 // seconds
@@ -83,7 +85,9 @@ const long envelopes[6][2] = {
 #define SUSTAIN 3
 #define RELEASE1 4
 #define RELEASE2 5
-#define OFF 6
+#define RELEASE3 6
+#define HOLD 7
+#define OFF 8
 
 #define LOCAL_CHANGE 0
 #define REMOTE_CHANGE 1
@@ -527,8 +531,18 @@ void updateState() {
       break;
     case RELEASE2:
       if (loopCount >= envelopes[RELEASE2][TIME]) {
-        changeState(OFF, LOCAL_CHANGE);
+        changeState(RELEASE3, LOCAL_CHANGE);
       }
+      break;
+    case RELEASE3:
+      if (loopCount >= envelopes[RELEASE3][TIME]) {
+        changeState(HOLD, LOCAL_CHANGE);
+      }
+      break;
+    case HOLD:
+      /*if (loopCount >= envelopes[HOLD][TIME]) {
+        changeState(OFF, LOCAL_CHANGE);
+      }*/
       break;
   }
 
@@ -545,6 +559,7 @@ void updateState() {
 
 int getCurrentBrightness(unsigned char state, int initBrightness, int loopCount) {
   if (state == OFF) return 0;
+  if (envelopes[state][TIME] == 0) return envelopes[state][END_VALUE];
   int brightnessDistance = envelopes[state][END_VALUE] - initBrightness;
   int brightnessDistanceXElapsedTime = brightnessDistance * loopCount / envelopes[state][TIME];
   return min(255, max(0, initBrightness + brightnessDistanceXElapsedTime));
