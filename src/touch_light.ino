@@ -2,9 +2,11 @@
  * Project: touch_light
  * Description: A touch light that syncs with other touch lights. Adapted from
  *              http://www.instructables.com/id/Networked-RGB-Wi-Fi-Decorative-Touch-Lights/
- * Author: Patrick Blesi
+ * Original Author: Patrick Blesi
  * Date: 2017-12-09
  *
+ * Modifications By: Jeff Bush (coderforlife)
+ * Date: 2018-12-21
  */
 
 #include "neopixel.h"
@@ -576,27 +578,26 @@ void updateNeoPixels(uint32_t color) {
 // Wheel
 //------------------------------------------------------------
 
-uint32_t wheelColor(byte WheelPos, byte iBrightness) {
-  float R, G, B;
-  float brightness = iBrightness / 255.0;
+byte scale(byte x, float scale) {
+    return (byte)(x * scale + .5);
+}
 
-  if (WheelPos < 85) {
-    R = WheelPos * 3;
-    G = 255 - WheelPos * 3;
-    B = 0;
-  } else if (WheelPos < 170) {
-    WheelPos -= 85;
-    R = 255 - WheelPos * 3;
-    G = 0;
-    B = WheelPos * 3;
-  } else {
-    WheelPos -= 170;
-    R = 0;
-    G = WheelPos * 3;
-    B = 255 - WheelPos * 3;
-  }
-  R = R * brightness + .5;
-  G = G * brightness + .5;
-  B = B * brightness + .5;
-  return strip.Color((byte) R,(byte) G,(byte) B);
+// Converts HSV color to RGB color
+// hue is from 0 to 255 around the circle
+// saturation is fixed to max
+// value (brightness) is from 0 to 255
+uint32_t wheelColor(byte hue, byte value) {
+    //hue %= 256;
+    //if (hue < 0) { hue += 256; }
+    int H6 = 6*(int)hue;
+    byte R = 0, G = 0, B = 0;
+    // each 1/6 of a circle (42.5 is 1/6 of 255)
+    if (hue < 43) { R = 255; G = H6; }
+    else if (hue < 86) { R = 510-H6; G = 255; }
+    else if (hue < 128) { G = 255; B = H6-510; }
+    else if (hue < 171) { G = 1020-H6; B = 255; }
+    else if (hue < 213) { R = H6-1020; B = 255; }
+    else { R = 255; B = 1530-H6; }
+    float brightness = value / 255.0;
+    return strip.Color(scale(R, brightness), scale(G, brightness), scale(B, brightness));
 }
