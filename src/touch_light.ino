@@ -21,8 +21,7 @@
 
 String touchEventName = "touch_event";
 
-#define NUM_PARTICLES 4 // number of touch lights in your group
-// Number each Filimin starting at 1.
+// Number each starting at 1
 String particleId[] = {
   "",                         // 0
   "330022001547353236343033", // pblesi
@@ -38,6 +37,9 @@ int particleColors[] = {
   79,  // Orange
   131  // Purple
 };
+
+
+#define ARRAY_SIZE(a) sizeof(a)/sizeof(a[0])
 
 // TWEAKABLE VALUES FOR CAP SENSING. THE BELOW VALUES WORK WELL AS A STARTING PLACE:
 // BASELINE_VARIANCE: The higher the number the less the baseline is affected by
@@ -111,7 +113,7 @@ int rPin = D3;
 unsigned char myId = 0;
 
 int currentEvent = tEVENT_NONE;
-int eventTime = Time.now();
+int eventTime = 0;
 int eventTimePrecision = random(INT_MAX);
 
 int initColor = 0;
@@ -167,7 +169,7 @@ void setup()
   pinMode(sPin, OUTPUT);
   attachInterrupt(rPin, touchSense, RISING);
 
-  myId = getMyId(particleId, NUM_PARTICLES);
+  myId = getMyId(particleId, ARRAY_SIZE(particleId));
 
   flashWhite(&strip);
 
@@ -258,19 +260,17 @@ void traverseColorWheel(Adafruit_NeoPixel* strip) {
       strip->setPixelColor(j, color);
       strip->show();
     }
-    delay(1);
   }
 }
 
 void fade(Adafruit_NeoPixel* strip) {
   int numPixels = strip->numPixels();
-  for (int j = 255; j >= 0; j--) {
+  for (int j = 255; j >= 0; j-=2) {
     uint32_t color = wheelColor(255, j);
     for (byte k = 0; k < numPixels; k++) {
       strip->setPixelColor(k, color);
       strip->show();
     }
-    delay(1);
   }
 }
 
@@ -418,8 +418,8 @@ void handleTouchEvent(const char *event, const char *data) {
     Particle.publish("touch_response", response, 61, PRIVATE);
   }
 
-  if (deviceId == myId) return;
-  if (serverEventTime < eventTime) return;
+  if (deviceId == myId) { return; }
+  if (serverEventTime < eventTime) { return; }
   // Race condition brought colors out of sync
   if (
     serverEventTime == eventTime &&
@@ -431,7 +431,7 @@ void handleTouchEvent(const char *event, const char *data) {
     changeState(ATTACK, REMOTE_CHANGE);
     return;
   }
-  if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) return;
+  if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) { return; }
 
   // Valid remote update
   setEvent(serverEvent, serverEventTime, serverEventTimePrecision);
@@ -558,14 +558,13 @@ int getCurrentColor(int finalColor, int initColor, int colorLoopCount) {
 }
 
 int calcColorChange(int currentColor, int finalColor) {
-  int colorChange = finalColor - currentColor;
-  int direction = (colorChange < 0) * 2 - 1;
-  colorChange += direction * (abs(colorChange) > 127) * 256;
-  return colorChange;
+  int d = currentColor - finalColor;
+  return abs(d) > 127 ? d : -d;
 }
 
 void updateNeoPixels(uint32_t color) {
-  for(char i = 0; i < strip.numPixels(); i++) {
+  uint16_t n = strip.numPixels();
+  for (char i = 0; i < n; i++) {
     strip.setPixelColor(i, color);
   }
   strip.show();
