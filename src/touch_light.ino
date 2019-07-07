@@ -280,6 +280,8 @@ void fade(Adafruit_NeoPixel* strip) {
 long touchSampling() {
   long tDelay = 0;
   int mSample = 0;
+  static int timeout = 10000; // Timeout after 10000 failed readings
+  int num_readings = 0;
 
   for (int i = 0; i < SAMPLE_SIZE; i++) {
     if (!(i % SAMPLES_BETWEEN_PIXEL_UPDATES)) {
@@ -290,12 +292,14 @@ long touchSampling() {
     digitalWrite(rPin,LOW);
     pinMode(rPin,INPUT); // revert to high impedance input
     // timestamp & transition sPin to HIGH and wait for interrupt in a read loop
+    num_readings = 0;
     tS = micros();
     tR = tS;
     digitalWrite(sPin,HIGH);
     do {
       // wait for transition
-    } while (digitalRead(rPin)==LOW);
+      num_readings++;
+    } while (digitalRead(rPin)==LOW && num_readings < timeout);
 
     // accumulate the RC delay samples
     // ignore readings when micros() overflows
