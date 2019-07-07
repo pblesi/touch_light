@@ -163,7 +163,8 @@ void setup()
   strip.show(); // Initialize all pixels to 'off'
 
   pinMode(sPin, OUTPUT);
-  attachInterrupt(rPin, touchSense, RISING);
+  pinMode(rPin, INPUT);
+  digitalWrite(sPin, HIGH);
 
   myId = getMyId(particleId, NUM_PARTICLES);
 
@@ -178,7 +179,15 @@ void setup()
 }
 
 void loop() {
-  int touchEvent = touchEventCheck();
+  static int loop_number = 0;
+
+  if (!(loop_number % SAMPLES_BETWEEN_PIXEL_UPDATES)) {
+    updateState();
+  }
+
+  loop_number++;
+
+  int touchEvent = switchEventCheck();
   int now = Time.now();
 
   if (touchEvent == tEVENT_NONE) {
@@ -334,6 +343,46 @@ long touchSampling() {
 //------------------------------------------------------------
 void touchSense() {
   tR = micros();
+}
+
+
+//------------------------------------------------------------
+// switch event check
+//
+// check manual switch for events:
+//      tEVENT_NONE     no change
+//      tEVENT_TOUCH    sensor is touched (Low to High)
+//      tEVENT_RELEASE  sensor is released (High to Low)
+//
+//------------------------------------------------------------
+int switchEventCheck() {
+  int touchSense;             // current reading
+
+  static int touchNow = LOW;  // current debounced state
+  static int touchLast = LOW; // last debounced state
+
+  int tEvent = tEVENT_NONE;   // default event
+
+  if (digitalRead(rPin) == HIGH) {
+    touchSense = HIGH;
+  } else {
+    touchSense = LOW;
+  }
+
+  touchNow = touchSense;
+
+  // set events based on transitions between readings
+  if (!touchLast && touchNow) {
+    tEvent = tEVENT_TOUCH;
+  }
+
+  if (touchLast && !touchNow) {
+    tEvent = tEVENT_RELEASE;
+  }
+
+  // update last reading
+  touchLast = touchNow;
+  return tEvent;
 }
 
 //------------------------------------------------------------
