@@ -65,7 +65,7 @@ const long envelopes[6][2] = {
   {200, 240},  // DECAY
   {200, 1000}, // SUSTAIN
   {150, 60},   // RELEASE1
-  {0, 1000000} // RELEASE2 (65535 is about 6'45")
+  {0, 83000} // RELEASE2 (65535 is about 6'45")
 };
 
 #define PERIODIC_UPDATE_TIME 7200 // seconds
