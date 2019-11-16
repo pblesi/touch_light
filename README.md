@@ -88,3 +88,19 @@ $ particle flash <photon_name> <firmware.bin file>
 ```
 
 If all goes well, your touch light should cycle through a rainbow of colors, fade, and then be ready to be touched to change colors!
+
+### Troubleshooting
+
+On a Mac/Linux machine you can run the following using particle's CLI to generate a touch event and trigger the lights.
+
+```bash
+particle publish touch_event 0,1,70,`date +%s`,0
+```
+
+The 70 can be adjusted from 0 to 255 to set the color of the lights.
+
+You can listen for touch events by running the following:
+
+```bash
+particle subscribe
+```
