@@ -179,13 +179,14 @@ void setup()
 
 void loop() {
   int touchEvent = touchEventCheck();
+  int now = Time.now();
 
   if (touchEvent == tEVENT_NONE) {
     // Publish periodic updates to synchronize state
     bool touchedBefore = currentEvent != tEVENT_NONE;
-    if (lastPeriodicUpdate < Time.now() - PERIODIC_UPDATE_TIME && touchedBefore) {
+    if (lastPeriodicUpdate < now - PERIODIC_UPDATE_TIME && touchedBefore) {
       publishTouchEvent(currentEvent, finalColor, eventTime, eventTimePrecision);
-      lastPeriodicUpdate = Time.now();
+      lastPeriodicUpdate = now;
     }
     return;
   }
@@ -193,7 +194,7 @@ void loop() {
   // Random eventTimePrecision prevents ties with other
   // server events. This allows us to determine dominant
   // color in the event of ties.
-  setEvent(touchEvent, Time.now(), random(INT_MAX));
+  setEvent(touchEvent, now, random(INT_MAX));
 
   if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
   if (touchEvent == tEVENT_TOUCH) {
