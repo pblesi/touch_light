@@ -210,14 +210,10 @@ void loop() {
   if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
   if (touchEvent == tEVENT_TOUCH) {
     TAPS +=1;
-    Particle.publish("TAPS", String(TAPS), 60, PRIVATE);
-    if(TAPS >=3 && state!=7){ //7=HOLD
+    
+    if(TAPS >=3 && state != HOLD){ //HOLD === 7
       changeState(HOLD, LOCAL_CHANGE);
-      //updateState();
       fade(&strip);
-    }
-    else if(TAPS>=3 && state == 7){
-      changeState(RELEASE1, LOCAL_CHANGE);
     }
     else{
       int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
@@ -225,6 +221,9 @@ void loop() {
       
       changeState(ATTACK, LOCAL_CHANGE);
     }
+    //for debugging
+    String Test = String(TAPS)+ "," + String(state);
+    Particle.publish("TAPS,STATE", Test, 60, PRIVATE);
   }
 }
 
@@ -448,7 +447,7 @@ void handleTouchEvent(const char *event, const char *data) {
     serverColor != finalColor &&
     myId < deviceId
   ) {
-    if(state!= 7){
+    if(state!= HOLD){
       setColor(serverColor, prevState, deviceId);
       changeState(ATTACK, REMOTE_CHANGE);
       TAPS = 0;
@@ -460,7 +459,7 @@ void handleTouchEvent(const char *event, const char *data) {
 
   // Valid remote update
   setEvent(serverEvent, serverEventTime, serverEventTimePrecision);
-  if(state!= 7){
+  if(state!= HOLD){
     if (serverEvent == tEVENT_TOUCH) {
       setColor(serverColor, prevState, deviceId);
       changeState(ATTACK, REMOTE_CHANGE);
