@@ -9,7 +9,7 @@
  * Modifications By: Jeff Bush (coderforlife)
  * Date: 2018-12-21
  * 
- * Added feature for Turning Off By: nikostito
+ * Added feature for Turning Off after 3 TAPS By: nikostito
  * Date: 2021-4-20
  *
  */
@@ -74,7 +74,7 @@ const long envelopes[8][2] = {
   {155, 60},    // RELEASE1 ~400 ms to go from ~80% brightness to ~60% brightness
   {40, 300000}, // RELEASE2 ~30 min to go from ~60% brightness to ~15% brightness
   {10, 300000}, // RELEASE3 ~30 min to go from ~15% brightness to ~4% brightness
-  {0, 0},      // HOLD     will be held at ~4% brightness forever
+  {0, 0},      // HOLD     will be held at ~0% brightness forever
 };
 
 #define PERIODIC_UPDATE_TIME 5 // seconds
@@ -211,10 +211,13 @@ void loop() {
   if (touchEvent == tEVENT_TOUCH) {
     TAPS +=1;
     Particle.publish("TAPS", String(TAPS), 60, PRIVATE);
-    if(TAPS >=3){
+    if(TAPS >=3 && state!=7){ //7=HOLD
       changeState(HOLD, LOCAL_CHANGE);
       //updateState();
       fade(&strip);
+    }
+    else if(TAPS>=3 && state == 7){
+      changeState(RELEASE1, LOCAL_CHANGE);
     }
     else{
       int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
@@ -445,23 +448,28 @@ void handleTouchEvent(const char *event, const char *data) {
     serverColor != finalColor &&
     myId < deviceId
   ) {
-    setColor(serverColor, prevState, deviceId);
-    changeState(ATTACK, REMOTE_CHANGE);
-    TAPS = 0;
-    return;
+    if(state!= 7){
+      setColor(serverColor, prevState, deviceId);
+      changeState(ATTACK, REMOTE_CHANGE);
+      TAPS = 0;
+      return;
+    }
+    else{return;}
   }
   if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) { return; }
 
   // Valid remote update
   setEvent(serverEvent, serverEventTime, serverEventTimePrecision);
-
-  if (serverEvent == tEVENT_TOUCH) {
-    setColor(serverColor, prevState, deviceId);
-    changeState(ATTACK, REMOTE_CHANGE);
-    TAPS = 0;
-  } else {
-    changeState(RELEASE1, REMOTE_CHANGE);
+  if(state!= 7){
+    if (serverEvent == tEVENT_TOUCH) {
+      setColor(serverColor, prevState, deviceId);
+      changeState(ATTACK, REMOTE_CHANGE);
+      TAPS = 0;
+    } else {
+      changeState(RELEASE1, REMOTE_CHANGE);
+    }
   }
+  else{return;}
 }
 
 void setColor(int color, unsigned char prevState, unsigned char deviceId) {
