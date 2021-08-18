@@ -319,7 +319,7 @@ long touchSampling() {
   if (D_SERIAL) Serial.println(tDelay);
   if (D_WIFI) tDelayExternal = tDelay;
   // autocalibration using exponential moving average on data below specified point
-  if (tDelay < (tBaseline + tBaseline/BASELINE_SENSITIVITY)) {
+  if (abs(tDelay - tBaseline) < tBaseline/BASELINE_SENSITIVITY) {
     tBaseline = tBaseline + (tDelay - tBaseline)/BASELINE_VARIANCE;
     if (D_WIFI) tBaselineExternal = tBaseline;
   }
@@ -361,7 +361,7 @@ int touchEventCheck() {
   long tReading = touchSampling();
 
   // touch sensor is HIGH if trigger point some threshold above Baseline
-  if (tReading > (tBaseline + tBaseline / SENSITIVITY)) {
+  if (abs(tReading - tBaseline) > (tBaseline / SENSITIVITY)) {
     touchSense = HIGH;
   } else {
     touchSense = LOW;
