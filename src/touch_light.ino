@@ -170,8 +170,6 @@ void setup()
 
   flashWhite(&strip);
 
-  // Calibrate touch sensor- Keep hands off!!!
-  tBaseline = touchSampling(); // initialize to first reading
   if (D_WIFI) tBaselineExternal = tBaseline;
 
   traverseColorWheel(&strip);
