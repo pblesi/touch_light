@@ -2,8 +2,15 @@
  * Project: touch_light
  * Description: A touch light that syncs with other touch lights. Adapted from
  *              http://www.instructables.com/id/Networked-RGB-Wi-Fi-Decorative-Touch-Lights/
- * Author: Patrick Blesi
+ * 
+ * Original Author: Patrick Blesi
  * Date: 2017-12-09
+ *
+ * Modifications By: Jeff Bush (coderforlife)
+ * Date: 2018-12-21
+ * 
+ * Added feature for Turning Off after 3 TAPS By: nikostito
+ * Date: 2021-4-20
  *
  */
 
@@ -22,11 +29,8 @@ String touchEventName = "touch_event";
 #define NUM_PARTICLES 4 // number of touch lights in your group
 // Number each Filimin starting at 1.
 String particleId[] = {
-  "",                         // 0
-  "330022001547353236343033", // pblesi
-  "2d0047001247353236343033", // carol
-  "2a0026000b47353235303037", // cindy
-  "2e003e001947353236343033"  // tammy
+  "",                        // 0
+   //add your own ids. Reducted for privacy
 };
 
 int particleColors[] = {
@@ -36,6 +40,9 @@ int particleColors[] = {
   79,  // Orange
   131  // Purple
 };
+
+
+#define ARRAY_SIZE(a) sizeof(a)/sizeof(a[0])
 
 // TWEAKABLE VALUES FOR CAP SENSING. THE BELOW VALUES WORK WELL AS A STARTING PLACE:
 // BASELINE_VARIANCE: The higher the number the less the baseline is affected by
@@ -59,13 +66,15 @@ const int minMaxColorDiffs[2][2] = {
 
 // END VALUE, TIME
 // 160 is approximately 1 second
-const long envelopes[6][2] = {
-  {0, 0},      // NOT USED
-  {255, 30},   // ATTACK
-  {200, 240},  // DECAY
-  {200, 1000}, // SUSTAIN
-  {150, 60},   // RELEASE1
-  {0, 1000000} // RELEASE2 (65535 is about 6'45")
+const long envelopes[8][2] = {
+  {0, 0},       // NOT USED
+  {255, 30},    // ATTACK   ~200 ms
+  {205, 240},   // DECAY    ~1.5 sec
+  {205, 1000},  // SUSTAIN  ~6.25 sec
+  {155, 60},    // RELEASE1 ~400 ms to go from ~80% brightness to ~60% brightness
+  {40, 300000}, // RELEASE2 ~30 min to go from ~60% brightness to ~15% brightness
+  {10, 300000}, // RELEASE3 ~30 min to go from ~15% brightness to ~4% brightness
+  {0, 0},      // HOLD     will be held at ~0% brightness forever
 };
 
 #define PERIODIC_UPDATE_TIME 60 // seconds
@@ -79,7 +88,9 @@ const long envelopes[6][2] = {
 #define SUSTAIN 3
 #define RELEASE1 4
 #define RELEASE2 5
-#define OFF 6
+#define RELEASE3 6
+#define HOLD 7
+#define OFF 8
 
 #define LOCAL_CHANGE 0
 #define REMOTE_CHANGE 1
@@ -99,7 +110,8 @@ String eventTypes[] = {
 
 int sPin = D4;
 int rPin = D3;
-
+//Variable for checking user taps without response.
+int TAPS = 0;
 // NEOPIXEL
 #define PIXEL_PIN D2
 #define PIXEL_COUNT 24
@@ -109,7 +121,7 @@ int rPin = D3;
 unsigned char myId = 0;
 
 int currentEvent = tEVENT_NONE;
-int eventTime = Time.now();
+int eventTime = 0;
 int eventTimePrecision = random(INT_MAX);
 
 int initColor = 0;
@@ -165,7 +177,7 @@ void setup()
   pinMode(sPin, OUTPUT);
   attachInterrupt(rPin, touchSense, RISING);
 
-  myId = getMyId(particleId, NUM_PARTICLES);
+  myId = getMyId(particleId, ARRAY_SIZE(particleId));
 
   flashWhite(&strip);
 
@@ -179,14 +191,13 @@ void setup()
 
 void loop() {
   int touchEvent = touchEventCheck();
-  int now = Time.now();
 
   if (touchEvent == tEVENT_NONE) {
     // Publish periodic updates to synchronize state
     bool touchedBefore = currentEvent != tEVENT_NONE;
-    if (lastPeriodicUpdate < now - PERIODIC_UPDATE_TIME && touchedBefore) {
+    if (lastPeriodicUpdate < Time.now() - PERIODIC_UPDATE_TIME && touchedBefore) {
       publishTouchEvent(currentEvent, finalColor, eventTime, eventTimePrecision);
-      lastPeriodicUpdate = now;
+      lastPeriodicUpdate = Time.now();
     }
     return;
   }
@@ -194,13 +205,25 @@ void loop() {
   // Random eventTimePrecision prevents ties with other
   // server events. This allows us to determine dominant
   // color in the event of ties.
-  setEvent(touchEvent, now, random(INT_MAX));
+  setEvent(touchEvent, Time.now(), random(INT_MAX));
 
   if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
   if (touchEvent == tEVENT_TOUCH) {
-    int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
-    setColor(newColor, prevState, myId);
-    changeState(ATTACK, LOCAL_CHANGE);
+    TAPS +=1;
+    
+    if(TAPS >=3 && state != HOLD){ //HOLD === 7
+      changeState(HOLD, LOCAL_CHANGE);
+      fade(&strip);
+    }
+    else{
+      int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
+      setColor(newColor, prevState, myId);
+      
+      changeState(ATTACK, LOCAL_CHANGE);
+    }
+    //for debugging
+    String Test = String(TAPS)+ "," + String(state);
+    Particle.publish("TAPS,STATE", Test, 60, PRIVATE);
   }
 }
 
@@ -257,19 +280,17 @@ void traverseColorWheel(Adafruit_NeoPixel* strip) {
       strip->setPixelColor(j, color);
       strip->show();
     }
-    delay(1);
   }
 }
 
 void fade(Adafruit_NeoPixel* strip) {
   int numPixels = strip->numPixels();
-  for (int j = 255; j >= 0; j--) {
+  for (int j = 255; j >= 0; j-=2) {
     uint32_t color = wheelColor(255, j);
     for (byte k = 0; k < numPixels; k++) {
       strip->setPixelColor(k, color);
       strip->show();
     }
-    delay(1);
   }
 }
 
@@ -281,8 +302,6 @@ void fade(Adafruit_NeoPixel* strip) {
 long touchSampling() {
   long tDelay = 0;
   int mSample = 0;
-  static int timeout = 10000; // Timeout after 10000 failed readings
-  int num_readings = 0;
 
   for (int i = 0; i < SAMPLE_SIZE; i++) {
     if (!(i % SAMPLES_BETWEEN_PIXEL_UPDATES)) {
@@ -293,14 +312,12 @@ long touchSampling() {
     digitalWrite(rPin,LOW);
     pinMode(rPin,INPUT); // revert to high impedance input
     // timestamp & transition sPin to HIGH and wait for interrupt in a read loop
-    num_readings = 0;
     tS = micros();
     tR = tS;
     digitalWrite(sPin,HIGH);
     do {
       // wait for transition
-      num_readings++;
-    } while (digitalRead(rPin)==LOW && num_readings < timeout);
+    } while (digitalRead(rPin)==LOW);
 
     // accumulate the RC delay samples
     // ignore readings when micros() overflows
@@ -421,8 +438,8 @@ void handleTouchEvent(const char *event, const char *data) {
     Particle.publish("touch_response", response, 61, PRIVATE);
   }
 
-  if (deviceId == myId) return;
-  if (serverEventTime < eventTime) return;
+  if (deviceId == myId) { return; }
+  if (serverEventTime < eventTime) { return; }
   // Race condition brought colors out of sync
   if (
     serverEventTime == eventTime &&
@@ -430,21 +447,28 @@ void handleTouchEvent(const char *event, const char *data) {
     serverColor != finalColor &&
     myId < deviceId
   ) {
-    setColor(serverColor, prevState, deviceId);
-    changeState(ATTACK, REMOTE_CHANGE);
-    return;
+    if(state!= HOLD){
+      setColor(serverColor, prevState, deviceId);
+      changeState(ATTACK, REMOTE_CHANGE);
+      TAPS = 0;
+      return;
+    }
+    else{return;}
   }
-  if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) return;
+  if (serverEventTime == eventTime && serverEventTimePrecision <= eventTimePrecision) { return; }
 
   // Valid remote update
   setEvent(serverEvent, serverEventTime, serverEventTimePrecision);
-
-  if (serverEvent == tEVENT_TOUCH) {
-    setColor(serverColor, prevState, deviceId);
-    changeState(ATTACK, REMOTE_CHANGE);
-  } else {
-    changeState(RELEASE1, REMOTE_CHANGE);
+  if(state!= HOLD){
+    if (serverEvent == tEVENT_TOUCH) {
+      setColor(serverColor, prevState, deviceId);
+      changeState(ATTACK, REMOTE_CHANGE);
+      TAPS = 0;
+    } else {
+      changeState(RELEASE1, REMOTE_CHANGE);
+    }
   }
+  else{return;}
 }
 
 void setColor(int color, unsigned char prevState, unsigned char deviceId) {
@@ -491,6 +515,9 @@ void changeState(unsigned char newState, int remoteChange) {
   if (D_SERIAL) { Serial.print("state: "); Serial.println(newState); }
 
   if (remoteChange) return;
+  if(newState == HOLD){
+    TAPS = 0;
+  }
 
   if (newState == ATTACK || newState == RELEASE1) {
     publishTouchEvent(currentEvent, finalColor, eventTime, eventTimePrecision);
@@ -530,8 +557,18 @@ void updateState() {
       break;
     case RELEASE2:
       if (loopCount >= envelopes[RELEASE2][TIME]) {
-        changeState(OFF, LOCAL_CHANGE);
+        changeState(RELEASE3, LOCAL_CHANGE);
       }
+      break;
+    case RELEASE3:
+      if (loopCount >= envelopes[RELEASE3][TIME]) {
+        changeState(HOLD, LOCAL_CHANGE);
+      }
+      break;
+    case HOLD:
+      /*if (loopCount >= envelopes[HOLD][TIME]) {
+        changeState(OFF, LOCAL_CHANGE);
+      }*/
       break;
   }
 
@@ -548,6 +585,7 @@ void updateState() {
 
 int getCurrentBrightness(unsigned char state, int initBrightness, int loopCount) {
   if (state == OFF) return 0;
+  if (envelopes[state][TIME] == 0) return envelopes[state][END_VALUE];
   int brightnessDistance = envelopes[state][END_VALUE] - initBrightness;
   int brightnessDistanceXElapsedTime = brightnessDistance * loopCount / envelopes[state][TIME];
   return min(255, max(0, initBrightness + brightnessDistanceXElapsedTime));
@@ -561,14 +599,13 @@ int getCurrentColor(int finalColor, int initColor, int colorLoopCount) {
 }
 
 int calcColorChange(int currentColor, int finalColor) {
-  int colorChange = finalColor - currentColor;
-  int direction = (colorChange < 0) * 2 - 1;
-  colorChange += direction * (abs(colorChange) > 127) * 256;
-  return colorChange;
+  int d = currentColor - finalColor;
+  return abs(d) > 127 ? d : -d;
 }
 
 void updateNeoPixels(uint32_t color) {
-  for(char i = 0; i < strip.numPixels(); i++) {
+  uint16_t n = strip.numPixels();
+  for (char i = 0; i < n; i++) {
     strip.setPixelColor(i, color);
   }
   strip.show();
@@ -581,27 +618,26 @@ void updateNeoPixels(uint32_t color) {
 // Wheel
 //------------------------------------------------------------
 
-uint32_t wheelColor(byte WheelPos, byte iBrightness) {
-  float R, G, B;
-  float brightness = iBrightness / 255.0;
+byte scale(byte x, float scale) {
+    return (byte)(x * scale + .5);
+}
 
-  if (WheelPos < 85) {
-    R = WheelPos * 3;
-    G = 255 - WheelPos * 3;
-    B = 0;
-  } else if (WheelPos < 170) {
-    WheelPos -= 85;
-    R = 255 - WheelPos * 3;
-    G = 0;
-    B = WheelPos * 3;
-  } else {
-    WheelPos -= 170;
-    R = 0;
-    G = WheelPos * 3;
-    B = 255 - WheelPos * 3;
-  }
-  R = R * brightness + .5;
-  G = G * brightness + .5;
-  B = B * brightness + .5;
-  return strip.Color((byte) R,(byte) G,(byte) B);
+// Converts HSV color to RGB color
+// hue is from 0 to 255 around the circle
+// saturation is fixed to max
+// value (brightness) is from 0 to 255
+uint32_t wheelColor(byte hue, byte value) {
+    //hue %= 256;
+    //if (hue < 0) { hue += 256; }
+    int H6 = 6*(int)hue;
+    byte R = 0, G = 0, B = 0;
+    // each 1/6 of a circle (42.5 is 1/6 of 255)
+    if (hue < 43) { R = 255; G = H6; }
+    else if (hue < 86) { R = 510-H6; G = 255; }
+    else if (hue < 128) { G = 255; B = H6-510; }
+    else if (hue < 171) { G = 1020-H6; B = 255; }
+    else if (hue < 213) { R = H6-1020; B = 255; }
+    else { R = 255; B = 1530-H6; }
+    float brightness = value / 255.0;
+    return strip.Color(scale(R, brightness), scale(G, brightness), scale(B, brightness));
 }
