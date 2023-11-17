@@ -7,6 +7,7 @@
  *
  */
 
+#include "Particle.h"
 #include "neopixel.h"
 #include "application.h"
 
@@ -57,15 +58,21 @@ const int minMaxColorDiffs[2][2] = {
   {50,128}  // min/Max if color change last color change from different touch light
 };
 
+#if (PLATFORM_ID == 32)
+const int timeMultiplier = 7;
+#else
+const int timeMultiplier = 1;
+#endif
+
 // END VALUE, TIME
-// 160 is approximately 1 second
+// 160 is approximately 1 second for original photon
 const long envelopes[6][2] = {
-  {0, 0},      // NOT USED
-  {255, 30},   // ATTACK
-  {200, 240},  // DECAY
-  {200, 1000}, // SUSTAIN
-  {150, 60},   // RELEASE1
-  {0, 1000000} // RELEASE2 (65535 is about 6'45")
+  {0, 0*timeMultiplier},      // NOT USED
+  {255, 30*timeMultiplier},   // ATTACK
+  {200, 240*timeMultiplier},  // DECAY
+  {200, 1000*timeMultiplier}, // SUSTAIN
+  {150, 60*timeMultiplier},   // RELEASE1
+  {0, 1000000*timeMultiplier} // RELEASE2 (65535 is about 6'45")
 };
 
 #define PERIODIC_UPDATE_TIME 60 // seconds
@@ -101,7 +108,13 @@ int sPin = D4;
 int rPin = D3;
 
 // NEOPIXEL
+/* #define PIXEL_PIN D2 */
+#if (PLATFORM_ID == 32)
+// MOSI pin D2
+#define PIXEL_PIN SPI1
+#else
 #define PIXEL_PIN D2
+#endif
 #define PIXEL_COUNT 24
 #define PIXEL_TYPE WS2812B
 
@@ -150,6 +163,10 @@ void setup()
 #ifdef WIFI_CREDENTIALS_SPECIFIED
   setupWifi();
 #endif
+
+  /* disable automatic Ethernet driver detection, which will cause some */
+  /* glitches to SPI1 pins D2,D3,D4. */
+  System.disableFeature(FEATURE_ETHERNET_DETECTION);
 
   Particle.subscribe(touchEventName, handleTouchEvent, MY_DEVICES);
 
