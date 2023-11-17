@@ -79,7 +79,7 @@ const long envelopes[6][2] = {
 #define SUSTAIN 3
 #define RELEASE1 4
 #define RELEASE2 5
-#define OFF 6
+#define STATE_OFF 6
 
 #define LOCAL_CHANGE 0
 #define REMOTE_CHANGE 1
@@ -120,8 +120,8 @@ int lastLocalColorChangeTime = Time.now();
 int initBrightness = 0;    // 0 to 255
 int currentBrightness = 0; // 0 to 255
 
-unsigned char prevState = OFF;
-unsigned char state = OFF;
+unsigned char prevState = STATE_OFF;
+unsigned char state = STATE_OFF;
 
 unsigned char lastColorChangeDeviceId = 1;
 
@@ -449,7 +449,7 @@ void handleTouchEvent(const char *event, const char *data) {
 
 void setColor(int color, unsigned char prevState, unsigned char deviceId) {
   lastColorChangeDeviceId = deviceId;
-  if (prevState == OFF) currentColor = color;
+  if (prevState == STATE_OFF) currentColor = color;
   initColor = currentColor;
   finalColor = color;
   colorLoopCount = 0;
@@ -466,7 +466,7 @@ int generateColor(int currentFinalColor, unsigned char prevState, int lastColorC
   int color = 0;
   int now = Time.now();
   Serial.println("generating color...");
-  if (prevState == OFF || lastLocalColorChangeTime < now - COLOR_CHANGE_WINDOW) {
+  if (prevState == STATE_OFF || lastLocalColorChangeTime < now - COLOR_CHANGE_WINDOW) {
     color = particleColors[myId];
   } else {
     bool foreignId = (lastColorChangeDeviceId != myId);
@@ -530,7 +530,7 @@ void updateState() {
       break;
     case RELEASE2:
       if (loopCount >= envelopes[RELEASE2][TIME]) {
-        changeState(OFF, LOCAL_CHANGE);
+        changeState(STATE_OFF, LOCAL_CHANGE);
       }
       break;
   }
@@ -547,7 +547,7 @@ void updateState() {
 }
 
 int getCurrentBrightness(unsigned char state, int initBrightness, int loopCount) {
-  if (state == OFF) return 0;
+  if (state == STATE_OFF) return 0;
   int brightnessDistance = envelopes[state][END_VALUE] - initBrightness;
   int brightnessDistanceXElapsedTime = brightnessDistance * loopCount / envelopes[state][TIME];
   return min(255, max(0, initBrightness + brightnessDistanceXElapsedTime));
