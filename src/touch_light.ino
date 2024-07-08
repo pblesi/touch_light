@@ -68,7 +68,7 @@ const long envelopes[6][2] = {
   {0, 1000000} // RELEASE2 (65535 is about 6'45")
 };
 
-#define PERIODIC_UPDATE_TIME 60 // seconds
+#define PERIODIC_UPDATE_TIME 7200 // seconds
 #define COLOR_CHANGE_WINDOW 10  // seconds
 
 // CONFIGURATION SETTINGS END
