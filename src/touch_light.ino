@@ -182,12 +182,15 @@ void loop() {
   int now = Time.now();
 
   if (touchEvent == tEVENT_NONE) {
-    // Publish periodic updates to synchronize state
+    // Publish periodic updates to synchronize state across lights
     bool touchedBefore = currentEvent != tEVENT_NONE;
     if (lastPeriodicUpdate < now - PERIODIC_UPDATE_TIME && touchedBefore) {
       publishTouchEvent(currentEvent, finalColor, eventTime, eventTimePrecision);
       lastPeriodicUpdate = now;
     }
+
+    // If we were not touched in this cycle, return
+    // Otherwise handle the touch event (by setting new color/state) below.
     return;
   }
 
@@ -196,6 +199,7 @@ void loop() {
   // color in the event of ties.
   setEvent(touchEvent, now, random(INT_MAX));
 
+  // Set color in accordance with the touch event
   if (D_SERIAL) Serial.println(eventTypes[touchEvent]);
   if (touchEvent == tEVENT_TOUCH) {
     int newColor = generateColor(finalColor, prevState, lastColorChangeDeviceId);
@@ -393,6 +397,7 @@ int touchEventCheck() {
   return tEvent;
 }
 
+// Set global event, timeOfEvent, and timePrecision values
 void setEvent(int event, int timeOfEvent, int timePrecision) {
   currentEvent = event;
   eventTime = timeOfEvent;
